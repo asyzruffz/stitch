@@ -1,0 +1,9 @@
+[package]
+name = "stitch"
+version = "0.1.0"
+authors = ["Ruffz <m.asyraf.ibr@gmail.com>"]
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.86"
+clap = { version = "4.5.16", features = ["derive"] }
