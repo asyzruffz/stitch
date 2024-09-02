@@ -3,7 +3,8 @@ use std::path::Path;
 use std::io::Write;
 use serde::Serialize;
 
-use crate::projects::{SANDBOX, project::Project};
+use crate::resourses::SANDBOX;
+use crate::projects::project::Project;
 
 #[derive(Serialize)]
 pub struct Config {

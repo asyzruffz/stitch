@@ -2,8 +2,7 @@ use std::fs;
 use std::path::Path;
 use serde::Serialize;
 
-use crate::resourses::{RESOURCES_DIR, TEMPLATE_DIR};
-use crate::projects::SANDBOX;
+use crate::resourses::{RESOURCES_DIR, TEMPLATE_DIR, SANDBOX};
 
 #[derive(Serialize)]
 pub struct Project {
