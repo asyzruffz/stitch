@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::io::{self, Write};
-use std::str::FromStr;
+use std::rc::Rc;
 
 use super::token::{Token, TokenType};
 
@@ -14,11 +14,11 @@ pub struct Scanner<State: ScannerState = Initial> {
 pub struct Initial;
 #[derive(Debug, Default)]
 pub struct Ready {
-    pub source : String,
+    pub source : Rc<str>,
 }
 #[derive(Debug, Default)]
 pub struct Done {
-    pub tokens : Vec<Token>,
+    pub tokens : Rc<[Token]>,
     pub error_count : u32,
 }
 
@@ -27,9 +27,9 @@ impl ScannerState for Ready {}
 impl ScannerState for Done {}
 
 impl Scanner<Initial> {
-    pub fn new(source: String) -> Scanner<Ready> {
+    pub fn new(source: &str) -> Scanner<Ready> {
         Scanner::<Ready> {
-            state: Ready { source },
+            state: Ready { source: source.into() },
         }
     }
 }
@@ -60,17 +60,17 @@ impl Scanner<Ready> {
 
         Scanner::<Done> {
             state: Done {
-                tokens,
+                tokens: tokens.into(),
                 error_count,
             },
         }
     }
 
-    fn is_at_end(source: &String, current : usize) -> bool {
+    fn is_at_end(source: &str, current : usize) -> bool {
         current >= source.len()
     }
 
-    fn scan_token(source: &String, start : usize, current: &mut usize, line: &mut u32, keywords: &HashMap<String, TokenType>, error_count: &mut u32) -> TokenType {
+    fn scan_token(source: &str, start : usize, current: &mut usize, line: &mut u32, keywords: &HashMap<Rc<str>, TokenType>, error_count: &mut u32) -> TokenType {
         if Self::is_at_end(source, *current) {
             return TokenType::EOF; 
         }
@@ -117,11 +117,11 @@ impl Scanner<Ready> {
         }
     }
 
-    fn add_token(mut tokens : Vec<Token>, token: TokenType, text: Option<String>, line: u32) -> Vec<Token> {
+    fn add_token(mut tokens : Vec<Token>, token: TokenType, text: Option<&str>, line: u32) -> Vec<Token> {
         if token == TokenType::None { return tokens; }
 
         let literal = text.clone().and_then(|t| {
-            if token == TokenType::String { Some(t[1..(t.len()-1)].to_string()) }
+            if token == TokenType::String { Some(Rc::from(t.trim_matches('\"'))) }
             else if token == TokenType::Number {
                 let number = t.parse::<f32>().unwrap_or_default();
                 let number = if number.fract() > f32::EPSILON {
@@ -129,14 +129,14 @@ impl Scanner<Ready> {
                 } else {
                     format!("{:.1}", number)
                 };
-                Some(number)
+                Some(Rc::from(number))
             }
             else { None }
         });
 
         tokens.push(Token {
             name: token, 
-            lexeme: text.unwrap_or_default(),
+            lexeme: text.unwrap_or_default().into(),
             literal,
             line,
         });
@@ -144,17 +144,16 @@ impl Scanner<Ready> {
         tokens
     }
 
-    fn extract_text(source: &String, from: usize, to: usize) -> Option<String> {
+    fn extract_text(source: &str, from: usize, to: usize) -> Option<&str> {
         source.get(from..to)
-            .and_then(|t| Some(String::from_str(t).unwrap()))
     }
 
-    fn extract_symbol_at(source: &String, pos: usize) -> Option<char> {
+    fn extract_symbol_at(source: &str, pos: usize) -> Option<char> {
         source.get(pos..pos+1)
             .and_then(|c| c.chars().next())
     }
 
-    fn match_next(source: &String, current : &mut usize, symbol: char) -> bool {
+    fn match_next(source: &str, current : &mut usize, symbol: char) -> bool {
         if !Self::peek_next(source, *current, symbol) {
             return false;
         }
@@ -163,7 +162,7 @@ impl Scanner<Ready> {
         true
     }
 
-    fn peek_next(source: &String, current : usize, symbol: char) -> bool {
+    fn peek_next(source: &str, current : usize, symbol: char) -> bool {
         if Self::is_at_end(source, current) {
             return false; 
         }
@@ -172,7 +171,7 @@ impl Scanner<Ready> {
         next == Some(symbol)
     }
     
-    fn skip_comment(source: &String, current : &mut usize) -> TokenType {
+    fn skip_comment(source: &str, current : &mut usize) -> TokenType {
         // A comment goes until the end of the line.
         while !Self::peek_next(source, *current, '\n') && !Self::is_at_end(source, *current) { 
             *current += 1;
@@ -192,7 +191,7 @@ impl Scanner<Ready> {
         Self::is_alpha(c) || Self::is_digit(c)
     }
 
-    fn handle_string(source: &String, current : &mut usize, line : &mut u32, error_count : &mut u32) -> TokenType {
+    fn handle_string(source: &str, current : &mut usize, line : &mut u32, error_count : &mut u32) -> TokenType {
         while !Self::peek_next(source, *current, '\"') && !Self::is_at_end(source, *current) {
             if Self::peek_next(source, *current, '\n') { *line += 1; }
             *current += 1;
@@ -208,7 +207,7 @@ impl Scanner<Ready> {
         TokenType::String
     }
 
-    fn handle_number(source: &String, current : &mut usize) -> TokenType {
+    fn handle_number(source: &str, current : &mut usize) -> TokenType {
         while Self::is_digit(Self::extract_symbol_at(source, *current).unwrap_or_default()) {
             *current += 1;
         }
@@ -223,24 +222,24 @@ impl Scanner<Ready> {
         TokenType::Number
     }
 
-    fn handle_identifier(source: &String, start : usize, current : &mut usize, keywords: &HashMap<String, TokenType>) -> TokenType {
+    fn handle_identifier(source: &str, start : usize, current : &mut usize, keywords: &HashMap<Rc<str>, TokenType>) -> TokenType {
         while Self::is_alphanumeric(Self::extract_symbol_at(source, *current).unwrap_or_default()) {
             *current += 1;
         }
 
         let text = Self::extract_text(source, start, *current);
-        keywords.get(&text.unwrap_or_default())
+        keywords.get(text.unwrap_or_default())
             .unwrap_or(&TokenType::Identifier)
             .clone()
     }
 }
 
 impl Scanner<Done> {
-    pub fn tokens_ref(&self) -> &Vec<Token> {
+    pub fn tokens_ref(&self) -> &Rc<[Token]> {
         &self.state.tokens
     }
     
-    pub fn tokens(self) -> Vec<Token> {
+    pub fn tokens(self) -> Rc<[Token]> {
         self.state.tokens
     }
 

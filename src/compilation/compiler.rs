@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::rc::Rc;
 
 use walkdir::WalkDir;
 
@@ -20,15 +21,15 @@ pub struct Compiler<State: CompilerState = Initial> {
 pub struct Initial;
 #[derive(Default)]
 pub struct Ready {
-    pub sources : Vec<Source>,
+    pub sources : Rc<[Source]>,
 }
 #[derive(Default)]
 pub struct Tokenized {
-    pub tokens : Vec<Token>,
+    pub tokens : Rc<[Token]>,
 }
 #[derive(Default)]
 pub struct Parsed {
-    //pub statements : Vec<Statement>,
+    //pub statements : Rc<[Statement]>,
 }
 #[derive(Default)]
 pub struct Evaluated;
@@ -49,19 +50,19 @@ impl Compiler<Initial> {
 
             let path = entry.path();
             let path = path.strip_prefix(&source_directory)
-                .map_err(|e| CompilerError::SourceError(e.to_string()))?;
+                .map_err(|e| CompilerError::SourceError(e.to_string().as_str().into()))?;
             let path = path.to_string_lossy();
 
             let filename = entry.file_name().to_string_lossy();
 
             if filename.ends_with(".prs") {
-                let source = Source::new(path, filename)?;
+                let source = Source::new(path.as_ref(), filename.as_ref())?;
                 sources.push(source);
             }
         }
         
         Ok(Compiler {
-            state: Ready { sources }
+            state: Ready { sources: sources.into() }
         })
     }
 }
@@ -70,16 +71,16 @@ impl Compiler<Ready> {
     pub fn tokenize(self) -> Result<Compiler<Tokenized>, CompilerError> {
         let scanners = self.state.sources.iter()
             .map(|source| source.content())
-            .map_ok(|source| Scanner::new(source).tokenize())
+            .map_ok(|source| Scanner::new(source.as_ref()).tokenize())
             .collect::<Result<Vec<_>, CompilerError>>()?;
 
         let tokens = scanners.into_iter()
-            .map(|scanner| scanner.tokens())
+            .map(|scanner| scanner.tokens().to_vec())
             .flatten()
             .collect::<Vec<_>>();
 
         Ok(Compiler {
-            state: Tokenized { tokens }
+            state: Tokenized { tokens: tokens.into() }
         })
     }
 }

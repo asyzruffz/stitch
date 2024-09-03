@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::rc::Rc;
 
 #[derive(Default, Clone, Debug)]
 pub struct Token {
     pub name: TokenType,
-    pub lexeme: String,
-    pub literal: Option<String>,
+    pub lexeme: Rc<str>,
+    pub literal: Option<Rc<str>>,
     pub line: u32,
 }
 
@@ -14,29 +15,29 @@ impl fmt::Display for Token {
         write!(f, "{} {} {}", 
             self.name,
             self.lexeme, 
-            self.literal.clone().unwrap_or("null".to_string()))
+            self.literal.clone().unwrap_or("null".into()))
     }
 }
 
 impl Token {
-    pub fn keywords() -> HashMap<String, TokenType> {
+    pub fn keywords() -> HashMap<Rc<str>, TokenType> {
         HashMap::from([
-            ("and".to_string(), TokenType::And),
-            ("class".to_string(), TokenType::Class),
-            ("else".to_string(), TokenType::Else),
-            ("false".to_string(), TokenType::False),
-            ("for".to_string(), TokenType::For),
-            ("fun".to_string(), TokenType::Fun),
-            ("if".to_string(), TokenType::If),
-            ("nil".to_string(), TokenType::Nil),
-            ("or".to_string(), TokenType::Or),
-            ("print".to_string(), TokenType::Print),
-            ("return".to_string(), TokenType::Return),
-            ("super".to_string(), TokenType::Super),
-            ("this".to_string(), TokenType::This),
-            ("true".to_string(), TokenType::True),
-            ("var".to_string(), TokenType::Var),
-            ("while".to_string(), TokenType::While),
+            ("and".into(), TokenType::And),
+            ("class".into(), TokenType::Class),
+            ("else".into(), TokenType::Else),
+            ("false".into(), TokenType::False),
+            ("for".into(), TokenType::For),
+            ("fun".into(), TokenType::Fun),
+            ("if".into(), TokenType::If),
+            ("nil".into(), TokenType::Nil),
+            ("or".into(), TokenType::Or),
+            ("print".into(), TokenType::Print),
+            ("return".into(), TokenType::Return),
+            ("super".into(), TokenType::Super),
+            ("this".into(), TokenType::This),
+            ("true".into(), TokenType::True),
+            ("var".into(), TokenType::Var),
+            ("while".into(), TokenType::While),
         ]).into()
     }
 }

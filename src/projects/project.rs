@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use std::rc::Rc;
 use serde::Serialize;
 
 use crate::resourses::{RESOURCES_DIR, TEMPLATE_DIR, SANDBOX};
@@ -7,8 +8,8 @@ use crate::compilation::errors::CompilerError;
 
 #[derive(Serialize)]
 pub struct Project {
-    pub name: String,
-    pub version: String,
+    pub name: Rc<str>,
+    pub version: Rc<str>,
 }
 
 impl Project {
@@ -17,8 +18,8 @@ impl Project {
 
     pub fn new(name: &str) -> Self {
         Self {
-            name: name.to_string(),
-            version: "0.1.0".to_string(),
+            name: name.into(),
+            version: "0.1.0".into(),
         }
     }
 

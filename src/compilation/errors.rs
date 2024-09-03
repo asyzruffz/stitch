@@ -1,12 +1,13 @@
 use std::fmt;
 use std::io;
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub enum CompilerError {
-    SourceError(String),
+    SourceError(Rc<str>),
     LexicalError(u32),
     RuntimeError(EvaluationError),
-    MultiError(Vec<CompilerError>),
+    MultiError(Rc<[CompilerError]>),
 }
 
 impl fmt::Display for CompilerError {
@@ -23,13 +24,13 @@ impl fmt::Display for CompilerError {
 
 impl From<io::Error> for CompilerError {
     fn from(error: io::Error) -> Self {
-        CompilerError::SourceError(error.to_string())
+        CompilerError::SourceError(error.to_string().as_str().into())
     }
 }
 
 impl From<walkdir::Error> for CompilerError {
     fn from(error: walkdir::Error) -> Self {
-        CompilerError::SourceError(error.to_string())
+        CompilerError::SourceError(error.to_string().as_str().into())
     }
 }
 
@@ -41,7 +42,7 @@ impl From<EvaluationError> for CompilerError {
 
 #[derive(Default, Clone, Debug)]
 pub struct EvaluationError {
-    details: Vec<String>
+    details: Vec<Rc<str>>
 }
 
 impl fmt::Display for EvaluationError {
@@ -53,12 +54,12 @@ impl fmt::Display for EvaluationError {
 impl EvaluationError {
     pub fn new(detail: &str) -> Self {
         Self {
-            details: vec![detail.to_string()]
+            details: vec![detail.into()].into()
         }
     }
 
     pub fn add(mut self, detail: &str) -> Self {
-        self.details.push(detail.to_string());
+        self.details.push(detail.into());
         Self {
             details: self.details
         }

@@ -26,7 +26,7 @@ fn main() {
     let args = Args::parse();
 
     match args.command {
-        Some(Commands::New { project }) => commands::create_project(&project),
+        Some(Commands::New { project }) => commands::create_project(project.as_str()),
         Some(Commands::Build) => commands::build_project(),
         Some(Commands::Run) => commands::run_project(),
         Some(Commands::Test) => commands::test_project(),
