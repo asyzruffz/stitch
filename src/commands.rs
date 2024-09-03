@@ -1,5 +1,6 @@
 use std::io::{self, Write};
 
+use crate::compilation::compiler::Compiler;
 use crate::projects::{config::Config, project::Project};
 
 pub fn create_project(name: &str) {
@@ -12,7 +13,9 @@ pub fn create_project(name: &str) {
 }
 
 pub fn build_project() {
-    
+    let _result = Compiler::new()
+        .and_then(Compiler::tokenize)
+        .and_then(Compiler::parse);
 }
 
 pub fn run_project() {

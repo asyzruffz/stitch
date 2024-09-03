@@ -11,7 +11,7 @@ pub struct Project {
 }
 
 impl Project {
-    const SOURCE_DIR: &'static str = "source";
+    pub const SOURCE_DIR: &'static str = "source";
     const ENTRY_FILE: &'static str = "main.prs";
 
     pub fn new(name: &str) -> Self {
