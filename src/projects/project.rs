@@ -3,6 +3,7 @@ use std::path::Path;
 use serde::Serialize;
 
 use crate::resourses::{RESOURCES_DIR, TEMPLATE_DIR, SANDBOX};
+use crate::compilation::errors::CompilerError;
 
 #[derive(Serialize)]
 pub struct Project {
@@ -21,7 +22,7 @@ impl Project {
         }
     }
 
-    pub fn create_entrypoint() -> std::io::Result<()> {
+    pub fn create_entrypoint() -> Result<(), CompilerError> {
         let source_path = Path::new(SANDBOX).join(Project::SOURCE_DIR);
         if !source_path.exists() {
             fs::create_dir(source_path)?;

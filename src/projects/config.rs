@@ -4,6 +4,7 @@ use std::io::Write;
 use serde::Serialize;
 
 use crate::resourses::SANDBOX;
+use crate::compilation::errors::CompilerError;
 use crate::projects::project::Project;
 
 #[derive(Serialize)]
@@ -14,7 +15,7 @@ pub struct Config {
 impl Config {
     const FILENAME: &'static str = "Book.toml";
 
-    pub fn create(project_name: &str) -> std::io::Result<()> {
+    pub fn create(project_name: &str) -> Result<(), CompilerError> {
         let config = Self {
             project: Project::new(project_name),
         };

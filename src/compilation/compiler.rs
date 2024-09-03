@@ -28,7 +28,7 @@ pub struct Tokenized {
 }
 #[derive(Default)]
 pub struct Parsed {
-    pub statements : Vec<Statement>,
+    //pub statements : Vec<Statement>,
 }
 #[derive(Default)]
 pub struct Evaluated;
@@ -86,23 +86,23 @@ impl Compiler<Ready> {
 
 impl Compiler<Tokenized> {
     pub fn parse(self) -> Result<Compiler<Parsed>, CompilerError> {
-        let parser = Parser::new(self.state.tokens)
-            .parse_statements()?;
+        //let parser = Parser::new(self.state.tokens)
+        //    .parse_statements()?;
         
         Ok(Compiler {
-            state: Parsed { statements: parser.statements() }
+            state: Parsed { /*statements: parser.statements()*/ }
         })
     }
 }
 
 impl Compiler<Parsed> {
     pub fn evaluate(self) -> Result<Compiler<Evaluated>, CompilerError> {
-        let mut intepreter = Intepreter::new();
+        /*let mut intepreter = Intepreter::new();
 
         for statement in self.state.statements {
             intepreter.execute(&statement)
                 .map_err(|error| CompilerError::RuntimeError(error))?;
-        }
+        }*/
         
         Ok(Compiler {
             state: Evaluated
