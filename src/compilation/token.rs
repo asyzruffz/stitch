@@ -6,16 +6,12 @@ use std::rc::Rc;
 pub struct Token {
     pub name: TokenType,
     pub lexeme: Rc<str>,
-    pub literal: Option<Rc<str>>,
     pub line: u32,
 }
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} {} {}", 
-            self.name,
-            self.lexeme, 
-            self.literal.clone().unwrap_or("null".into()))
+        write!(f, "{} {}", self.name, self.lexeme)
     }
 }
 

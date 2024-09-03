@@ -120,24 +120,29 @@ impl Scanner<Ready> {
     fn add_token(mut tokens : Vec<Token>, token: TokenType, text: Option<&str>, line: u32) -> Vec<Token> {
         if token == TokenType::None { return tokens; }
 
-        let literal = text.clone().and_then(|t| {
-            if token == TokenType::String { Some(Rc::from(t.trim_matches('\"'))) }
+        let literal = if let Some(txt) = text {
+            if token == TokenType::String {
+                let trimmed = txt.trim_matches('\"');
+                Some(trimmed.to_string())
+            }
             else if token == TokenType::Number {
-                let number = t.parse::<f32>().unwrap_or_default();
+                let number = txt.parse::<f32>().unwrap_or_default();
                 let number = if number.fract() > f32::EPSILON {
                     format!("{}", number)
                 } else {
                     format!("{:.1}", number)
                 };
-                Some(Rc::from(number))
+                Some(number)
             }
-            else { None }
-        });
+            else {
+                Some(txt.to_string())
+            }
+        }
+        else { None };
 
         tokens.push(Token {
             name: token, 
-            lexeme: text.unwrap_or_default().into(),
-            literal,
+            lexeme: literal.unwrap_or_default().into(),
             line,
         });
 
