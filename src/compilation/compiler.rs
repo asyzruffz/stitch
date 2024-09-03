@@ -47,7 +47,10 @@ impl Compiler<Initial> {
         let mut sources = Vec::new();
         for entry in WalkDir::new(&source_directory) {
             let entry = entry?;
-
+            if entry.file_type().is_dir() {
+                continue;
+            }
+            
             let path = entry.path();
             let path = path.strip_prefix(&source_directory)
                 .map_err(|e| CompilerError::SourceError(e.to_string().as_str().into()))?;

@@ -1,6 +1,9 @@
 use std::fs;
+use std::path::Path;
 use std::rc::Rc;
 
+use crate::resourses::SANDBOX;
+use crate::projects::project::Project;
 use crate::compilation::errors::CompilerError;
 
 pub struct Source {
@@ -17,6 +20,8 @@ impl Source {
     }
 
     pub fn content(&self) -> Result<Rc<str>, CompilerError> {
-        Ok(fs::read_to_string(self.path.as_ref())?.as_str().into())
+        let source_directory = Path::new(SANDBOX).join(Project::SOURCE_DIR);
+        let full_path = source_directory.join(self.path.as_ref());
+        Ok(fs::read_to_string(full_path)?.as_str().into())
     }
 }
