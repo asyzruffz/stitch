@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 
-use crate::compilation::compiler::Compiler;
-use crate::projects::{config::Config, project::Project};
+use stitch::compilation::compiler::Compiler;
+use stitch::projects::{config::Config, project::Project};
 
 pub fn create_project(name: &str) {
     let result = Config::create(name)

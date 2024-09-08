@@ -1,11 +1,7 @@
 use std::io::{self, Write};
 use clap::{Parser, Subcommand};
 
-mod projects;
-mod compilation;
 mod commands;
-mod utils;
-mod resourses;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
