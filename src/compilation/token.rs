@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
+use serde::{Deserialize, Serialize};
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, Deserialize, Serialize)]
 pub struct Token {
     pub name: TokenType,
     pub lexeme: Rc<str>,
@@ -38,7 +39,7 @@ impl Token {
     }
 }
 
-#[derive(Default, PartialEq, Eq, Clone, Debug)]
+#[derive(Default, PartialEq, Eq, Clone, Debug, Deserialize, Serialize)]
 pub enum TokenType {
     #[default] None,
 

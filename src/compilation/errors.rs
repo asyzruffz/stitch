@@ -34,6 +34,12 @@ impl From<walkdir::Error> for CompilerError {
     }
 }
 
+impl From<Box<bincode::ErrorKind>> for CompilerError {
+    fn from(error: Box<bincode::ErrorKind>) -> Self {
+        CompilerError::SourceError(error.to_string().as_str().into())
+    }
+}
+
 impl From<EvaluationError> for CompilerError {
     fn from(error: EvaluationError) -> Self {
         CompilerError::RuntimeError(error)

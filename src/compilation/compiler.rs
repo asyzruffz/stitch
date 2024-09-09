@@ -1,15 +1,15 @@
-use std::path::Path;
 use std::rc::Rc;
+use std::fs;
 
 use walkdir::WalkDir;
 
-use crate::utils::MapOkTrait;
-use crate::resourses::SANDBOX;
+use crate::compilation::intermediate::Intermediate;
 use crate::projects::project::Project;
 use crate::compilation::source::Source;
-use crate::compilation::scanner::Scanner;
+use crate::compilation::scanner::{self, Scanner};
 use crate::compilation::token::Token;
 use crate::compilation::errors::CompilerError;
+use crate::utils::hasher::hash_file;
 
 pub trait CompilerState {}
 
@@ -42,24 +42,25 @@ impl CompilerState for Evaluated {}
 
 impl Compiler<Initial> {
     pub fn new() -> Result<Compiler<Ready>, CompilerError> {
-        let source_directory = Path::new(SANDBOX).join(Project::SOURCE_DIR);
+        let source_directory = Project::get_source_dir(false)?;
 
         let mut sources = Vec::new();
-        for entry in WalkDir::new(&source_directory) {
+        for entry in WalkDir::new(source_directory.as_path()) {
             let entry = entry?;
             if entry.file_type().is_dir() {
                 continue;
             }
             
-            let path = entry.path();
-            let path = path.strip_prefix(&source_directory)
+            let full_path = entry.path();
+            let path = full_path.strip_prefix(source_directory.as_path())
                 .map_err(|e| CompilerError::SourceError(e.to_string().as_str().into()))?;
             let path = path.to_string_lossy();
 
             let filename = entry.file_name().to_string_lossy();
 
             if filename.ends_with(".prs") {
-                let source = Source::new(path.as_ref(), filename.as_ref())?;
+                let hash = hash_file(full_path)?;
+                let source = Source::new(path.as_ref(), filename.as_ref(), hash.as_slice())?;
                 sources.push(source);
             }
         }
@@ -73,12 +74,11 @@ impl Compiler<Initial> {
 impl Compiler<Ready> {
     pub fn tokenize(self) -> Result<Compiler<Tokenized>, CompilerError> {
         let scanners = self.state.sources.iter()
-            .map(|source| source.content())
-            .map_ok(|source| Scanner::new(source.as_ref()).tokenize())
+            .map(to_token)
             .collect::<Result<Vec<_>, CompilerError>>()?;
 
         let tokens = scanners.into_iter()
-            .map(|scanner| scanner.tokens().to_vec())
+            .map(|scanner| scanner.intermediate().tokens.to_vec())
             .flatten()
             .collect::<Vec<_>>();
 
@@ -86,6 +86,19 @@ impl Compiler<Ready> {
             state: Tokenized { tokens: tokens.into() }
         })
     }
+}
+
+fn to_token(source: &Source) -> Result<Scanner<scanner::Done>, CompilerError> {
+    let result = match Intermediate::try_from(source) {
+        Ok(intermediate) => Scanner::from(intermediate),
+        Err(_) => {
+            let scanner = Scanner::new(source.content()?.as_ref(), source.hash.clone()).tokenize();
+            scanner.intermediate().save_for(source)?;
+            scanner
+        },
+    };
+
+    Ok(result)
 }
 
 impl Compiler<Tokenized> {

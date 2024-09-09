@@ -1,8 +1,8 @@
 use std::collections::HashMap;
-use std::io::{self, Write};
 use std::rc::Rc;
 
 use super::token::{Token, TokenType};
+use super::intermediate::Intermediate;
 
 pub trait ScannerState {}
 
@@ -15,10 +15,11 @@ pub struct Initial;
 #[derive(Debug, Default)]
 pub struct Ready {
     pub source : Rc<str>,
+    pub hash : Rc<[u8]>,
 }
 #[derive(Debug, Default)]
 pub struct Done {
-    pub tokens : Rc<[Token]>,
+    pub intermediate : Intermediate,
     pub error_count : u32,
 }
 
@@ -27,9 +28,21 @@ impl ScannerState for Ready {}
 impl ScannerState for Done {}
 
 impl Scanner<Initial> {
-    pub fn new(source: &str) -> Scanner<Ready> {
+    pub fn new(source: &str, hash: Rc<[u8]>) -> Scanner<Ready> {
         Scanner::<Ready> {
-            state: Ready { source: source.into() },
+            state: Ready {
+                source: source.into(),
+                hash: hash.into(),
+            },
+        }
+    }
+
+    pub fn from(intermediate: Intermediate) -> Scanner<Done> {
+        Scanner::<Done> {
+            state: Done {
+                intermediate,
+                error_count: 0,
+            },
         }
     }
 }
@@ -60,7 +73,7 @@ impl Scanner<Ready> {
 
         Scanner::<Done> {
             state: Done {
-                tokens: tokens.into(),
+                intermediate: Intermediate::new(tokens.as_slice(), self.state.hash.clone()),
                 error_count,
             },
         }
@@ -240,14 +253,10 @@ impl Scanner<Ready> {
 }
 
 impl Scanner<Done> {
-    pub fn tokens_ref(&self) -> &Rc<[Token]> {
-        &self.state.tokens
+    pub fn intermediate(&self) -> &Intermediate {
+        &self.state.intermediate
     }
     
-    pub fn tokens(self) -> Rc<[Token]> {
-        self.state.tokens
-    }
-
     pub fn is_err(&self) -> bool {
         self.state.error_count > 0
     }
