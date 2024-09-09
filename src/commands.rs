@@ -20,6 +20,14 @@ pub fn build_project() {
     }
 }
 
+pub fn clean_project() {
+    let result = Compiler::clean();
+
+    if let Err(error) = result {
+        eprintln!("{}", error);
+    }
+}
+
 pub fn run_project() {
     
 }

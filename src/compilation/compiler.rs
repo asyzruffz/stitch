@@ -69,6 +69,14 @@ impl Compiler<Initial> {
             state: Ready { sources: sources.into() }
         })
     }
+
+    pub fn clean() -> Result<Compiler<Initial>, CompilerError> {
+        if let Ok(intermediate_path) = Project::get_intermediate_dir(false) {
+            fs::remove_dir_all(intermediate_path)?;
+        }
+
+        Ok(Compiler { state: Initial })
+    }
 }
 
 impl Compiler<Ready> {
