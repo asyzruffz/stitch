@@ -105,12 +105,12 @@ impl Scanner<Ready> {
             } else if Self::is_alpha(c) {
                 Self::handle_identifier(source, start, current, keywords)
             } else {
-                writeln!(io::stderr(), "[line {}] Error: Unexpected character: {}", line, c).unwrap();
+                eprintln!("[line {}] Error: Unexpected character: {}", line, c);
                 *error_count += 1;
                 TokenType::None
             },
             none => {
-                writeln!(io::stderr(), "[line {}] Error: Unexpected character: {:?}", line, none).unwrap();
+                eprintln!("[line {}] Error: Unexpected character: {:?}", line, none);
                 *error_count += 1;
                 TokenType::None
             }
@@ -203,7 +203,7 @@ impl Scanner<Ready> {
         }
 
         if Self::is_at_end(source, *current) {
-            writeln!(io::stderr(), "[line {}] Error: Unterminated string.", line).unwrap();
+            eprintln!("[line {}] Error: Unterminated string.", line);
             *error_count += 1;
             return TokenType::None; 
         }

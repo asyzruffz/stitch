@@ -27,6 +27,6 @@ fn main() {
         Some(Commands::Run) => commands::run_project(),
         Some(Commands::Test) => commands::test_project(),
 
-        None => writeln!(io::stderr(), "Unknown command entered").unwrap(),
+        None => eprintln!("Unknown command entered"),
     };
 }

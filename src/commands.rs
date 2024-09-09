@@ -1,5 +1,3 @@
-use std::io::{self, Write};
-
 use stitch::compilation::compiler::Compiler;
 use stitch::projects::{config::Config, project::Project};
 
@@ -8,7 +6,7 @@ pub fn create_project(name: &str) {
         .and_then(|_| Project::create_entrypoint());
     
     if let Err(error) = result {
-        writeln!(io::stderr(), "{}", error).unwrap();
+        eprintln!("{}", error);
     }
 }
 
@@ -18,7 +16,7 @@ pub fn build_project() {
         .and_then(Compiler::parse);
 
     if let Err(error) = result {
-        writeln!(io::stderr(), "{}", error).unwrap();
+        eprintln!("{}", error);
     }
 }
 
