@@ -49,7 +49,7 @@ impl TryFrom<&Source> for Intermediate {
         if source.hash == intermediate.hash {
             Ok(intermediate)
         } else {
-            Err(CompilerError::SourceError("Stale intermediate file".into()))
+            Err(CompilerError::None)
         }
     }
 }

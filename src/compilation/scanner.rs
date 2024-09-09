@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use super::token::{Token, TokenType};
-use super::intermediate::Intermediate;
+use crate::compilation::token::{Token, TokenType};
+use crate::compilation::intermediate::Intermediate;
 
 pub trait ScannerState {}
 

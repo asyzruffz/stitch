@@ -2,22 +2,38 @@ use std::fmt;
 use std::io;
 use std::rc::Rc;
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CompilerError {
+    None,
     SourceError(Rc<str>),
-    LexicalError(u32),
+    LexicalError(Rc<str>),
     RuntimeError(EvaluationError),
     MultiError(Rc<[CompilerError]>),
+}
+
+impl CompilerError {
+    pub fn add(self, error: CompilerError) -> CompilerError {
+        match self {
+            CompilerError::None => error,
+            CompilerError::MultiError(errs) => {
+                let mut errors = errs.to_vec();
+                errors.push(error);
+                CompilerError::MultiError(errors.into())
+            },
+            other => CompilerError::MultiError(vec![other, error].into()),
+        }
+    }
 }
 
 impl fmt::Display for CompilerError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            CompilerError::None => write!(f, "Non error"),
             CompilerError::SourceError(error) => write!(f, "Failed to read file: {}", error),
-            CompilerError::LexicalError(error_count) => write!(f, "Scanned with {} error(s)", error_count),
+            CompilerError::LexicalError(error) => write!(f, "Parsed with error(s): {}", error),
             CompilerError::RuntimeError(error) => write!(f, "Evaluated with {} error(s): {}", error.error_count(), error),
-            CompilerError::MultiError(errors) => write!(f, "Result with {} error(s): {}", errors.len(), 
-                errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n\t")),
+            CompilerError::MultiError(errors) => write!(f, "Compiled with {} error(s):\n    {}", errors.len(), 
+                errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n    ")),
         }
     }
 }
@@ -46,7 +62,7 @@ impl From<EvaluationError> for CompilerError {
     }
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, PartialEq)]
 pub struct EvaluationError {
     details: Vec<Rc<str>>
 }

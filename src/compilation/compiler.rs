@@ -3,11 +3,13 @@ use std::fs;
 
 use walkdir::WalkDir;
 
-use crate::compilation::intermediate::Intermediate;
 use crate::projects::project::Project;
+use crate::compilation::intermediate::Intermediate;
 use crate::compilation::source::Source;
 use crate::compilation::scanner::{self, Scanner};
 use crate::compilation::token::Token;
+use crate::compilation::parser::Parser;
+use crate::compilation::statement::Statement;
 use crate::compilation::errors::CompilerError;
 use crate::utils::hasher::hash_file;
 
@@ -29,7 +31,7 @@ pub struct Tokenized {
 }
 #[derive(Default)]
 pub struct Parsed {
-    //pub statements : Rc<[Statement]>,
+    pub statements : Rc<[Statement]>,
 }
 #[derive(Default)]
 pub struct Evaluated;
@@ -90,6 +92,10 @@ impl Compiler<Ready> {
             .flatten()
             .collect::<Vec<_>>();
 
+        for token in &tokens {
+            println!("{token}");
+        }
+
         Ok(Compiler {
             state: Tokenized { tokens: tokens.into() }
         })
@@ -100,8 +106,11 @@ fn to_token(source: &Source) -> Result<Scanner<scanner::Done>, CompilerError> {
     let result = match Intermediate::try_from(source) {
         Ok(intermediate) => Scanner::from(intermediate),
         Err(_) => {
-            let scanner = Scanner::new(source.content()?.as_ref(), source.hash.clone()).tokenize();
-            scanner.intermediate().save_for(source)?;
+            let scanner = Scanner::new(source.content()?.as_ref(), source.hash.clone())
+                .tokenize();
+            scanner
+                .intermediate()
+                .save_for(source)?;
             scanner
         },
     };
@@ -111,11 +120,15 @@ fn to_token(source: &Source) -> Result<Scanner<scanner::Done>, CompilerError> {
 
 impl Compiler<Tokenized> {
     pub fn parse(self) -> Result<Compiler<Parsed>, CompilerError> {
-        //let parser = Parser::new(self.state.tokens)
-        //    .parse_statements()?;
+        let parser = Parser::new(self.state.tokens)
+            .parse()?;
         
+        for statement in parser.statements().as_ref() {
+            println!("{statement}");
+        }
+    
         Ok(Compiler {
-            state: Parsed { /*statements: parser.statements()*/ }
+            state: Parsed { statements: parser.statements() }
         })
     }
 }
