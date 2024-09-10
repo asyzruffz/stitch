@@ -102,22 +102,6 @@ impl Compiler<Ready> {
     }
 }
 
-fn to_token(source: &Source) -> Result<Scanner<scanner::Done>, CompilerError> {
-    let result = match Intermediate::try_from(source) {
-        Ok(intermediate) => Scanner::from(intermediate),
-        Err(_) => {
-            let scanner = Scanner::new(source.content()?.as_ref(), source.hash.clone())
-                .tokenize();
-            scanner
-                .intermediate()
-                .save_for(source)?;
-            scanner
-        },
-    };
-
-    Ok(result)
-}
-
 impl Compiler<Tokenized> {
     pub fn parse(self) -> Result<Compiler<Parsed>, CompilerError> {
         let parser = Parser::new(self.state.tokens)
@@ -146,4 +130,20 @@ impl Compiler<Parsed> {
             state: Evaluated
         })
     }
+}
+
+fn to_token(source: &Source) -> Result<Scanner<scanner::Done>, CompilerError> {
+    let result = match Intermediate::try_from(source) {
+        Ok(intermediate) => Scanner::from(intermediate),
+        Err(_) => {
+            let scanner = Scanner::new(source.content()?.as_ref(), source.hash.clone())
+                .tokenize();
+            scanner
+                .intermediate()
+                .save_for(source)?;
+            scanner
+        },
+    };
+
+    Ok(result)
 }
