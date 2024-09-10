@@ -369,28 +369,34 @@ fn handle_unary(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerEr
 fn handle_call(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerError> {
     let mut expr = handle_primary(tokens)?;
 
-    /*let mut token = match tokens.get_current() {
-        Some(token) => token.to_owned(),
-        None => {
-            return Err(CompilerError::LexicalError("Unexpected EOF".into()));
-        }
-    };
+    loop {
+        if tokens.match_next(&[TokenType::LeftParen]) {
+            let mut arguments = Vec::new();
+            if !tokens.peek_next(TokenType::RightParen) {
+                loop {
+                    if arguments.len() >= 255 {
+                        eprint!("Can't have more than 255 arguments.");
+                    }
 
-    while tokens.match_next(&[TokenType::LeftParen]) {
-        let operator = token;
-        let right = handle_unary(tokens)?;
-        expr = Expression::Call {
-            callee: (),
-            arguments: ()
-        };
-
-        token = match tokens.get_current() {
-            Some(token) => token.to_owned(),
-            None => {
-                return Err(CompilerError::LexicalError("Unexpected EOF".into()));
+                    arguments.push(handle_expression(tokens)?);
+                    if !tokens.match_next(&[TokenType::Comma]) {
+                        break;
+                    }
+                }
             }
-        };
-    }*/
+
+            if let Err(error) = tokens.consume(TokenType::RightParen) {
+                return Err(error);
+            }
+
+            expr = Expression::Call {
+                callee: Box::new(expr),
+                arguments: arguments.into(),
+            };
+        } else {
+            break;
+        }
+    }
 
     Ok(expr)
 }
