@@ -8,7 +8,7 @@ pub enum Expression {
     None,
     Call{
         callee: Box<Expression>,
-        arguments: Vec<Expression>,
+        arguments: Rc<[Expression]>,
     },
     Primary(LiteralExpression),
     Unary {
