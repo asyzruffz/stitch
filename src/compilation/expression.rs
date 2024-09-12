@@ -48,12 +48,12 @@ pub enum LiteralExpression {
 impl fmt::Display for LiteralExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            LiteralExpression::Number(literal) => write!(f, "{}", literal),
-            LiteralExpression::String(literal) => write!(f, "{}", literal),
+            LiteralExpression::Number(literal) => write!(f, "{literal}"),
+            LiteralExpression::String(literal) => write!(f, "{literal}"),
             LiteralExpression::True => write!(f, "true"),
             LiteralExpression::False => write!(f, "false"),
             LiteralExpression::Nil => write!(f, "nil"),
-            LiteralExpression::Group(expr) => write!(f, "(group {})", *expr),
+            LiteralExpression::Group(expr) => write!(f, "(group {expr})"),
             LiteralExpression::Variable(name) => write!(f, "(var {})", name),
         }
     }
