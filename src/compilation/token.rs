@@ -23,23 +23,61 @@ impl fmt::Display for Token {
 impl Token {
     pub fn keywords() -> HashMap<Rc<str>, TokenType> {
         HashMap::from([
+            ("adjective".into(), TokenType::Adjective),
             ("and".into(), TokenType::And),
-            ("class".into(), TokenType::Class),
-            ("else".into(), TokenType::Else),
+            ("as".into(), TokenType::As),
             ("false".into(), TokenType::False),
             ("for".into(), TokenType::For),
-            ("fun".into(), TokenType::Fun),
-            ("if".into(), TokenType::If),
-            ("nil".into(), TokenType::Nil),
+            ("hence".into(), TokenType::Hence),
+            ("is".into(), TokenType::Is),
+            ("it".into(), TokenType::It),
+            ("noun".into(), TokenType::Noun),
+            ("not".into(), TokenType::Not),
             ("or".into(), TokenType::Or),
-            ("print".into(), TokenType::Print),
-            ("return".into(), TokenType::Return),
-            ("super".into(), TokenType::Super),
-            ("this".into(), TokenType::This),
+            ("the".into(), TokenType::The),
+            ("to".into(), TokenType::To),
             ("true".into(), TokenType::True),
-            ("var".into(), TokenType::Var),
-            ("while".into(), TokenType::While),
+            ("verb".into(), TokenType::Verb),
+            ("when".into(), TokenType::When),
         ]).into()
+    }
+}
+
+pub trait TokenCollection {
+    fn add(&mut self, token: TokenType, text: Option<&str>, line: u32);
+}
+
+
+impl TokenCollection for Vec<Token> {
+    fn add(&mut self, token: TokenType, text: Option<&str>, line: u32) {
+        if token == TokenType::None { return; }
+
+        let literal = if let Some(txt) = text {
+            if token == TokenType::Text {
+                let trimmed = txt.trim_matches('\"');
+                Some(trimmed.to_string())
+            }
+            else if token == TokenType::Number {
+                let trimmed = txt.trim_start_matches('[').trim_end_matches(']');
+                let number = trimmed.parse::<f32>().unwrap_or_default();
+                let number = if number.fract() > f32::EPSILON {
+                    format!("{}", number)
+                } else {
+                    format!("{:.1}", number)
+                };
+                Some(number)
+            }
+            else {
+                Some(txt.to_string())
+            }
+        }
+        else { None };
+
+        self.push(Token {
+            name: token, 
+            lexeme: literal.unwrap_or_default().into(),
+            line,
+        });
     }
 }
 
@@ -48,21 +86,49 @@ pub enum TokenType {
     #[default] None,
 
     // Single-character tokens.
-    LeftParen, RightParen, LeftBrace, RightBrace,
-    Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    Comma,
+    Dot,
+    Minus,
+    Plus,
+    Slash,
+    Star,
+    Equal,
+    Tilde,
+    Bang,
   
     // One or two character tokens.
-    Bang, BangEqual,
-    Equal, EqualEqual,
-    Greater, GreaterEqual,
-    Less, LessEqual,
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
   
     // Literals.
-    Identifier, String, Number,
+    Identifier,
+    Number,
+    Text,
+    Type,
   
     // Keywords.
-    And, Class, Else, False, For, Fun, If, Nil, Or,
-    Print, Return, Super, This, True, Var, While,
+    Adjective,
+    And,
+    As,
+    False,
+    For,
+    Hence,
+    Is,
+    It,
+    Noun,
+    Not,
+    Or,
+    The,
+    To,
+    True,
+    Verb,
+    When,
   
     EOF
 }

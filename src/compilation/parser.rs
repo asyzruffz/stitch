@@ -43,7 +43,7 @@ impl Parser<Ready> {
         let mut errors = CompilerError::None;
         
         while !buffer.is_at_end() {
-            match handle_declaration(&mut buffer) {
+            match handle_prose(&mut buffer) {
                 Ok(statement) => statements.push(statement),
                 Err(error) => errors = errors.add(error),
             }
@@ -67,52 +67,73 @@ impl Parser<Done> {
     }
 }
 
-fn handle_declaration(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
-    if tokens.match_next(&[TokenType::Var]) {
-        return handle_var_declaration(tokens);
+fn handle_prose(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
+    if tokens.match_next(&[TokenType::Noun]) {
+        handle_noun_definition(tokens)
+    } else if tokens.match_next(&[TokenType::Verb]) {
+        handle_verb_definition(tokens)
+    } else if tokens.match_next(&[TokenType::Adjective]) {
+        handle_adjective_definition(tokens)
+    } else if tokens.match_next(&[TokenType::The]) {
+        handle_the_definition(tokens)
+    } else {
+        handle_sentence(tokens)
     }
-
-    handle_statement(tokens)
 }
 
-fn handle_var_declaration(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
-    let token = match tokens.consume(TokenType::Identifier) {
+fn handle_noun_definition(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
+    handle_sentence(tokens)
+}
+
+fn handle_verb_definition(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
+    handle_sentence(tokens)
+}
+
+fn handle_adjective_definition(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
+    handle_sentence(tokens)
+}
+
+fn handle_the_definition(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
+    let name_token = match tokens.consume(TokenType::Identifier) {
         Ok(token) => token.to_owned(),
         Err(error) => return Err(error),
     };
 
-    let initializer = if tokens.match_next(&[TokenType::Equal]) {
-        Some(handle_expression(tokens)?)
-    } else { None };
-
-    if let Err(error) = tokens.consume(TokenType::Semicolon) {
+    if let Err(error) = tokens.consume(TokenType::Is) {
         return Err(error);
     }
 
-    Ok(Statement::Var { name: token.lexeme, initializer })
+    let type_token = match tokens.consume(TokenType::Identifier) {
+        Ok(token) => token.to_owned(),
+        Err(error) => return Err(error),
+    };
+
+    let initializer = if tokens.match_next(&[TokenType::As]) {
+        Some(handle_phrase(tokens)?)
+    } else { None };
+
+    if let Err(error) = tokens.consume(TokenType::Dot) {
+        return Err(error);
+    }
+
+    Ok(Statement::Var { name: name_token.lexeme, initializer })
 }
 
-fn handle_statement(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
-    /*if tokens.match_next(&[TokenType::For]) {
-        handle_for_statement(tokens)
-    } else if tokens.match_next(&[TokenType::If]) {
-        handle_if_statement(tokens)
-    } else if tokens.match_next(&[TokenType::Print]) {
-        handle_print_statement(tokens)
-    } else if tokens.match_next(&[TokenType::While]) {
-        handle_while_statement(tokens)
-    } else*/ if tokens.match_next(&[TokenType::LeftBrace]) {
+fn handle_sentence(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
+    /*if tokens.match_next(&[TokenType::LeftBrace]) {
         handle_block_statement(tokens)
+    } else*/ if tokens.match_next(&[TokenType::Hence]) {
+        handle_hence_sentence(tokens)
     } else {
-        handle_expression_statement(tokens)
+        handle_phrase_sentence(tokens)
     }
 }
 
-fn handle_block_statement(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
+/*fn handle_block_statement(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
     let mut statements = Vec::new();
 
     while !tokens.peek_next(TokenType::RightBrace) && !tokens.is_at_end() {
-        let statement = handle_declaration(tokens)?;
+        let statement = handle_the_definition(tokens)?;
         statements.push(statement);
     }
 
@@ -121,19 +142,23 @@ fn handle_block_statement(tokens : &mut impl TokenBuffer) -> Result<Statement, C
     }
 
     Ok(Statement::Block(statements))
+}*/
+
+fn handle_hence_sentence(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
+    todo!()
 }
 
-fn handle_expression_statement(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
-    let expr = handle_expression(tokens)?;
+fn handle_phrase_sentence(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
+    let expr = handle_phrase(tokens)?;
 
-    if let Err(error) = tokens.consume(TokenType::Semicolon) {
+    if let Err(error) = tokens.consume(TokenType::Dot) {
         return Err(error);
     }
 
     Ok(Statement::Expression(expr))
 }
 
-fn handle_expression(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerError> {
+fn handle_phrase(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerError> {
     handle_assignment(tokens)
 }
 
@@ -236,7 +261,7 @@ fn handle_equality(tokens : &mut impl TokenBuffer) -> Result<Expression, Compile
         }
     };
 
-    while tokens.match_next(&[TokenType::BangEqual, TokenType::EqualEqual]) {
+    while tokens.match_next(&[TokenType::Equal, TokenType::Tilde]) {
         let operator = token;
         let right = handle_comparison(tokens)?;
         expr = Expression::Binary {
@@ -378,7 +403,7 @@ fn handle_call(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerErr
                         eprint!("Can't have more than 255 arguments.");
                     }
 
-                    arguments.push(handle_expression(tokens)?);
+                    arguments.push(handle_phrase(tokens)?);
                     if !tokens.match_next(&[TokenType::Comma]) {
                         break;
                     }
@@ -408,9 +433,6 @@ fn handle_primary(tokens : &mut impl TokenBuffer) -> Result<Expression, Compiler
     if tokens.match_next(&[TokenType::True]) {
         return Ok(Expression::Primary(LiteralExpression::True));
     }
-    if tokens.match_next(&[TokenType::Nil]) {
-        return Ok(Expression::Primary(LiteralExpression::Nil));
-    }
 
     let token = match tokens.get_current() {
         Some(token) => token.to_owned(),
@@ -422,7 +444,7 @@ fn handle_primary(tokens : &mut impl TokenBuffer) -> Result<Expression, Compiler
     if tokens.match_next(&[TokenType::Number]) {
         return Ok(Expression::Primary(LiteralExpression::Number(token.lexeme)));
     }
-    if tokens.match_next(&[TokenType::String]) {
+    if tokens.match_next(&[TokenType::Text]) {
         return Ok(Expression::Primary(LiteralExpression::String(token.lexeme)));
     }
     if tokens.match_next(&[TokenType::Identifier]) {
@@ -430,7 +452,7 @@ fn handle_primary(tokens : &mut impl TokenBuffer) -> Result<Expression, Compiler
     }
 
     if tokens.match_next(&[TokenType::LeftParen]) {
-        let expr = handle_expression(tokens)?;
+        let expr = handle_phrase(tokens)?;
 
         if let Err(error) = tokens.consume(TokenType::RightParen) {
             return Err(error);
