@@ -58,6 +58,7 @@ impl SourceBuffer<'_> {
                 // Since we called `self.next()`, we consumed `self.peeked`.
                 assert!(self.peeked.is_none());
                 self.peeked = Some(other);
+                self.sub.pop();
                 None
             }
         }
@@ -99,21 +100,16 @@ impl Iterator for SourceBuffer<'_> {
     type Item = char;
     
     fn next(&mut self) -> Option<Self::Item> {
-        match self.peeked.take() {
-            Some(ch) => {
-                if let Some(ch) = ch {
-                    self.sub.push(ch);
-                }
-                ch
-            },
-            None => match self.iter.next() {
-                Some(ch) => {
-                    self.sub.push(ch);
-                    Some(ch)
-                },
-                None => None,
-            },
+        let nxt = match self.peeked.take() {
+            Some(ch) => ch,
+            None => self.iter.next(),
+        };
+
+        if let Some(ch) = nxt {
+            self.sub.push(ch);
         }
+
+        nxt
     }
 
     fn count(mut self) -> usize {

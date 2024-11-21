@@ -195,5 +195,5 @@ fn is_alpha(c: char) -> bool {
 }
 
 fn is_alphanumeric(c: char) -> bool {
-    is_alpha(c) ||is_digit(c)
+    is_alpha(c) || is_digit(c)
 }

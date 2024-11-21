@@ -1,10 +1,16 @@
 use std::rc::Rc;
 
-use crate::compilation::token::{Token, TokenType, TokenBuffer};
-use crate::compilation::expression::{Expression, LiteralExpression};
-use crate::compilation::operator::Operator;
+use crate::compilation::token::{Token, TokenCategory, TokenType, TokenBuffer};
+use crate::compilation::datatype::Datatype;
+use crate::compilation::phrase::Phrase;
+use crate::compilation::primitive::Primitive;
+use crate::compilation::verb::Verb;
+use crate::compilation::conjunction::Conjunction;
+use crate::compilation::prefix::Prefix;
 use crate::compilation::statement::Statement;
 use crate::compilation::errors::CompilerError;
+
+use super::precedent::Precedent;
 
 pub trait ParserState {}
 
@@ -67,33 +73,236 @@ impl Parser<Done> {
     }
 }
 
-fn handle_prose(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
-    if tokens.match_next(&[TokenType::Noun]) {
-        handle_noun_definition(tokens)
-    } else if tokens.match_next(&[TokenType::Verb]) {
-        handle_verb_definition(tokens)
-    } else if tokens.match_next(&[TokenType::Adjective]) {
-        handle_adjective_definition(tokens)
-    } else if tokens.match_next(&[TokenType::The]) {
-        handle_the_definition(tokens)
+fn handle_prose<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement, CompilerError>
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
+    if tokens.peek_next(TokenType::Noun)
+        || tokens.peek_next(TokenType::Verb)
+        || tokens.peek_next(TokenType::Adjective)
+        || tokens.peek_next(TokenType::So) {
+        handle_definition(tokens)
     } else {
         handle_sentence(tokens)
     }
 }
 
-fn handle_noun_definition(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
-    handle_sentence(tokens)
+fn handle_definition<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement, CompilerError>
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
+    if tokens.match_next(&[TokenType::Noun]) {
+        return handle_noun_definition(tokens);
+    } else if tokens.match_next(&[TokenType::Verb]) {
+        return handle_verb_definition(tokens);
+    } else if tokens.match_next(&[TokenType::Adjective]) {
+        return handle_adjective_definition(tokens);
+    } else if tokens.match_next(&[TokenType::So]) {
+        return handle_so_definition(tokens);
+    }
+
+    let token = match tokens.get_current() {
+        Some(token) => token.to_owned(),
+        None => {
+            return Err(CompilerError::LexicalError("Unexpected EOF".into()));
+        }
+    };
+
+    tokens.advance();
+    let msg = format!("At '{}' [line {}], invalid definition", token.lexeme, token.line);
+    Err(CompilerError::LexicalError(msg.into()))
 }
 
-fn handle_verb_definition(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
-    handle_sentence(tokens)
+fn handle_noun_definition<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement, CompilerError>
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
+    let name_token = match tokens.consume(TokenType::Identifier) {
+        Ok(token) => token.to_owned(),
+        Err(error) => return Err(error),
+    };
+
+    let super_type = if let Ok(_) = tokens.consume(TokenType::Is) {
+        let datatype = match tokens.next() {
+            Some(Token { name: TokenType::Type(datatype), .. }) => datatype.to_owned(),
+            Some(Token { name: TokenType::Identifier, lexeme, .. }) => Datatype::Custom(lexeme.to_owned().into()),
+            token => {
+                let msg = format!("Invalid datatype {token:?}");
+                return Err(CompilerError::LexicalError(msg.into()));
+            },
+        };
+
+        Some(datatype)
+    } else {
+        None
+    };
+
+    if let Err(error) = tokens.consume(TokenType::LeftBrace) {
+        return Err(error);
+    }
+
+    let mut definitions = Vec::new();
+    while !tokens.peek_next(TokenType::RightBrace) && !tokens.is_at_end() {
+        let definition = handle_definition(tokens)?;
+        definitions.push(definition);
+    }
+
+    if let Err(error) = tokens.consume(TokenType::RightBrace) {
+        return Err(error);
+    }
+
+    Ok(Statement::Noun {
+        name: name_token.lexeme,
+        super_type,
+        body: definitions.into(),
+    })
 }
 
-fn handle_adjective_definition(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
-    handle_sentence(tokens)
+fn handle_verb_definition<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement, CompilerError>
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
+    let name_token = match tokens.consume(TokenType::Identifier) {
+        Ok(token) => token.to_owned(),
+        Err(error) => return Err(error),
+    };
+
+    let hence_type = if let Ok(_) = tokens.consume(TokenType::Is) {
+        let datatype = match tokens.next() {
+            Some(Token { name: TokenType::Type(datatype), .. }) => datatype.to_owned(),
+            Some(Token { name: TokenType::Identifier, lexeme, .. }) => Datatype::Custom(lexeme.to_owned().into()),
+            token => {
+                let msg = format!("Invalid datatype {token:?}");
+                return Err(CompilerError::LexicalError(msg.into()));
+            },
+        };
+
+        Some(datatype)
+    } else {
+        None
+    };
+
+    let subject_type = if let Ok(_) = tokens.consume(TokenType::For) {
+        let datatype = match tokens.next() {
+            Some(Token { name: TokenType::Type(datatype), .. }) => datatype.to_owned(),
+            Some(Token { name: TokenType::Identifier, lexeme, .. }) => Datatype::Custom(lexeme.to_owned().into()),
+            token => {
+                let msg = format!("Invalid datatype {token:?}");
+                return Err(CompilerError::LexicalError(msg.into()));
+            },
+        };
+
+        Some(datatype)
+    } else {
+        None
+    };
+
+    let mut parameters = Vec::new();
+    if let Ok(_) = tokens.consume(TokenType::When) {
+        parameters = handle_parameters(tokens)?;
+    }
+
+    if let Err(error) = tokens.consume(TokenType::LeftBrace) {
+        return Err(error);
+    }
+
+    let mut sentences = Vec::new();
+    while !tokens.peek_next(TokenType::RightBrace) && !tokens.is_at_end() {
+        let sentence = handle_sentence(tokens)?;
+        sentences.push(sentence);
+    }
+
+    if let Err(error) = tokens.consume(TokenType::RightBrace) {
+        return Err(error);
+    }
+
+    Ok(Statement::Verb {
+        name: name_token.lexeme,
+        hence_type,
+        subject_type,
+        object_types: parameters.into(),
+        body: sentences.into(),
+    })
 }
 
-fn handle_the_definition(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
+fn handle_parameters<'a, Buffer>(tokens : &mut Buffer) -> Result<Vec<Statement>, CompilerError>
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
+    let mut declarations = Vec::new();
+
+    if let Err(error) = tokens.consume(TokenType::So) {
+        return Err(error);
+    }
+
+    declarations.push(handle_so_declaration(tokens)?);
+
+    while tokens.match_next(&[TokenType::Comma]) {
+        if tokens.match_next(&[TokenType::And]) {
+            if let Err(error) = tokens.consume(TokenType::So) {
+                return Err(error);
+            }
+        
+            declarations.push(handle_so_declaration(tokens)?);
+            break;
+        } else {
+            if let Err(error) = tokens.consume(TokenType::So) {
+                return Err(error);
+            }
+        
+            declarations.push(handle_so_declaration(tokens)?);
+        }
+    };
+
+    Ok(declarations)
+}
+
+fn handle_adjective_definition<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement, CompilerError>
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
+    let name_token = match tokens.consume(TokenType::Identifier) {
+        Ok(token) => token.to_owned(),
+        Err(error) => return Err(error),
+    };
+
+    let subject_type = if let Ok(_) = tokens.consume(TokenType::For) {
+        let datatype = match tokens.next() {
+            Some(Token { name: TokenType::Type(datatype), .. }) => datatype.to_owned(),
+            Some(Token { name: TokenType::Identifier, lexeme, .. }) => Datatype::Custom(lexeme.to_owned().into()),
+            token => {
+                let msg = format!("Invalid datatype {token:?}");
+                return Err(CompilerError::LexicalError(msg.into()));
+            },
+        };
+
+        datatype
+    } else {
+        return Err(CompilerError::LexicalError("Adjective missing subject datatype".into()));
+    };
+
+    if let Err(error) = tokens.consume(TokenType::LeftBrace) {
+        return Err(error);
+    }
+
+    let mut sentences = Vec::new();
+    while !tokens.peek_next(TokenType::RightBrace) && !tokens.is_at_end() {
+        let sentence = handle_sentence(tokens)?;
+        sentences.push(sentence);
+    }
+
+    if let Err(error) = tokens.consume(TokenType::RightBrace) {
+        return Err(error);
+    }
+
+    Ok(Statement::Adjective {
+        name: name_token.lexeme,
+        subject_type,
+        body: sentences.into(),
+    })
+}
+
+fn handle_so_definition<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement, CompilerError>
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
+    let definition = handle_so_declaration(tokens)?;
+
+    if let Err(error) = tokens.consume(TokenType::Dot) {
+        return Err(error);
+    }
+
+    Ok(definition)
+}
+
+fn handle_so_declaration<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement, CompilerError>
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
     let name_token = match tokens.consume(TokenType::Identifier) {
         Ok(token) => token.to_owned(),
         Err(error) => return Err(error),
@@ -103,29 +312,39 @@ fn handle_the_definition(tokens : &mut impl TokenBuffer) -> Result<Statement, Co
         return Err(error);
     }
 
-    let type_token = match tokens.consume(TokenType::Identifier) {
-        Ok(token) => token.to_owned(),
-        Err(error) => return Err(error),
+    let datatype = match tokens.next() {
+        Some(Token { name: TokenType::Type(datatype), .. }) => datatype.to_owned(),
+        Some(Token { name: TokenType::Identifier, lexeme, .. }) => Datatype::Custom(lexeme.to_owned().into()),
+        token => {
+            let msg = format!("Invalid datatype {token:?}");
+            return Err(CompilerError::LexicalError(msg.into()));
+        },
     };
 
     let initializer = if tokens.match_next(&[TokenType::As]) {
-        Some(handle_phrase(tokens)?)
+        Some(handle_phrase(tokens, 0)?)
     } else { None };
+
+    Ok(Statement::So {
+        name: name_token.lexeme,
+        datatype,
+        initializer
+    })
+}
+
+fn handle_sentence<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement, CompilerError>
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
+    let hence = tokens.match_next(&[TokenType::Hence]);
+    let phrase = handle_phrase(tokens, 0)?;
 
     if let Err(error) = tokens.consume(TokenType::Dot) {
         return Err(error);
     }
 
-    Ok(Statement::Var { name: name_token.lexeme, initializer })
-}
-
-fn handle_sentence(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
-    /*if tokens.match_next(&[TokenType::LeftBrace]) {
-        handle_block_statement(tokens)
-    } else*/ if tokens.match_next(&[TokenType::Hence]) {
-        handle_hence_sentence(tokens)
+    if hence {
+        Ok(Statement::Hence(phrase))
     } else {
-        handle_phrase_sentence(tokens)
+        Ok(Statement::Phrase(phrase))
     }
 }
 
@@ -144,26 +363,70 @@ fn handle_sentence(tokens : &mut impl TokenBuffer) -> Result<Statement, Compiler
     Ok(Statement::Block(statements))
 }*/
 
-fn handle_hence_sentence(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
-    todo!()
-}
+fn handle_phrase<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<Phrase, CompilerError>
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
+    let category = tokens.next().map(|t| t.to_owned().to_category());
 
-fn handle_phrase_sentence(tokens : &mut impl TokenBuffer) -> Result<Statement, CompilerError> {
-    let expr = handle_phrase(tokens)?;
+    let mut phrase = match category {
+        Some(TokenCategory::Atom(token)) => handle_atom(token)?,
+        Some(TokenCategory::Op(prefix)) => handle_prefix(tokens, prefix)?,
+        Some(TokenCategory::EOF) => {
+            return Err(CompilerError::LexicalError("Unexpected EOF".into()));
+        },
+        None => {
+            return Err(CompilerError::LexicalError("Unexpected EOF".into()));
+        }
+    };
 
-    if let Err(error) = tokens.consume(TokenType::Dot) {
-        return Err(error);
+    loop {
+        // Check if there is an operator after the phrase, break the loop otherwise
+        let op = match tokens.get_current().map(|t| t.to_owned().to_category()) {
+            Some(TokenCategory::Op(token)) => token,
+            Some(TokenCategory::Atom(token @ Token { name: TokenType::Identifier, .. })) => token,
+            Some(TokenCategory::Atom(token)) => {
+                let msg = format!("[line {}] Error at '{}': {} is invalid operator.", token.line, token.lexeme, token.name);
+                return Err(CompilerError::LexicalError(msg.into()));
+            },
+            Some(TokenCategory::EOF) => break,
+            None => break,
+        };
+
+        match op.name.precedent() {
+            Precedent::Postfix(l_bp) => {
+                if l_bp < precedent { break; }
+                tokens.next();
+    
+                phrase = handle_postfix(tokens, phrase)?;
+
+                continue;
+            },
+            Precedent::Infix(l_bp, r_bp) => {
+                if l_bp < precedent { break; }
+                tokens.next();
+
+                let object = handle_phrase(tokens, r_bp)?;
+    
+                phrase = Phrase::Action {
+                    subject: Some(Box::new(phrase)),
+                    verb: op.name.into(),
+                    object: Some(Box::new(object)),
+                };
+
+                continue;
+            },
+            _ => { break; },
+        };
     }
 
-    Ok(Statement::Expression(expr))
+    Ok(phrase)
 }
 
-fn handle_phrase(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerError> {
+/*fn handle_phrase(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
     handle_assignment(tokens)
-}
+}*/
 
-fn handle_assignment(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerError> {
-    let expr = handle_or(tokens)?;
+/*fn handle_assignment(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
+    let phrase = handle_condition(tokens)?;
 
     let token = match tokens.get_current() {
         Some(token) => token.to_owned(),
@@ -172,14 +435,14 @@ fn handle_assignment(tokens : &mut impl TokenBuffer) -> Result<Expression, Compi
         }
     };
 
-    if tokens.match_next(&[TokenType::Equal]) {
+    if tokens.match_next(&[TokenType::As]) {
         let value = handle_assignment(tokens)?;
         
-        if let Expression::Primary(LiteralExpression::Variable(_)) = expr {
-            return Ok(Expression::Binary {
-                left: Box::new(expr),
-                operator: Operator::Assignment,
-                right: Box::new(value),
+        if let Phrase::Primary(Primitive::Variable(_)) = phrase {
+            return Ok(Phrase::Action {
+                subject: Some(Box::new(phrase)),
+                verb: Verb::Assign,
+                object: Some(Box::new(value)),
             });
         } else {
             tokens.advance();
@@ -188,101 +451,62 @@ fn handle_assignment(tokens : &mut impl TokenBuffer) -> Result<Expression, Compi
         }
     }
 
-    Ok(expr)
+    Ok(phrase)
+}*/
+
+/*fn handle_condition(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
+    //handle_equality(tokens)
+    handle_or(tokens)
 }
 
-fn handle_or(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerError> {
+fn handle_or(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
     let mut expr = handle_and(tokens)?;
 
-    let mut token = match tokens.get_current() {
-        Some(token) => token.to_owned(),
-        None => {
-            return Err(CompilerError::LexicalError("Unexpected EOF".into()));
-        }
-    };
-
     while tokens.match_next(&[TokenType::Or]) {
-        let operator = token;
         let right = handle_and(tokens)?;
-        expr = Expression::Binary {
+        expr = Phrase::Condition {
             left: Box::new(expr),
-            operator: Operator::from(operator.name),
+            conjunction: Conjunction::Or,
             right: Box::new(right),
-        };
-
-        token = match tokens.get_current() {
-            Some(token) => token.to_owned(),
-            None => {
-                return Err(CompilerError::LexicalError("Unexpected EOF".into()));
-            }
         };
     }
 
     Ok(expr)
-}
+}*/
 
-fn handle_and(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerError> {
-    let mut expr = handle_equality(tokens)?;
-
-    let mut token = match tokens.get_current() {
-        Some(token) => token.to_owned(),
-        None => {
-            return Err(CompilerError::LexicalError("Unexpected EOF".into()));
-        }
-    };
+/*fn handle_and(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
+    let mut expr = handle_adjective(tokens)?;
 
     while tokens.match_next(&[TokenType::And]) {
-        let operator = token;
-        let right = handle_equality(tokens)?;
-        expr = Expression::Binary {
+        let right = handle_adjective(tokens)?;
+        println!("posibble and");
+        expr = Phrase::Condition {
             left: Box::new(expr),
-            operator: Operator::from(operator.name),
+            conjunction: Conjunction::And,
             right: Box::new(right),
-        };
-
-        token = match tokens.get_current() {
-            Some(token) => token.to_owned(),
-            None => {
-                return Err(CompilerError::LexicalError("Unexpected EOF".into()));
-            }
         };
     }
 
     Ok(expr)
-}
+}*/
 
-fn handle_equality(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerError> {
+/*fn handle_equality(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
     let mut expr = handle_comparison(tokens)?;
 
-    let mut token = match tokens.get_current() {
-        Some(token) => token.to_owned(),
-        None => {
-            return Err(CompilerError::LexicalError("Unexpected EOF".into()));
-        }
-    };
-
     while tokens.match_next(&[TokenType::Equal, TokenType::Tilde]) {
-        let operator = token;
         let right = handle_comparison(tokens)?;
-        expr = Expression::Binary {
+        expr = Phrase::Condition {
             left: Box::new(expr),
-            operator: Operator::from(operator.name),
+            conjunction: Conjunction::Equal,
             right: Box::new(right),
-        };
-
-        token = match tokens.get_current() {
-            Some(token) => token.to_owned(),
-            None => {
-                return Err(CompilerError::LexicalError("Unexpected EOF".into()));
-            }
         };
     }
 
     Ok(expr)
-}
+}*/
 
-fn handle_comparison(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerError> {
-    let mut expr = handle_term(tokens)?;
+/*fn handle_comparison(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
+    let mut expr = handle_noun(tokens)?;
 
     let mut token = match tokens.get_current() {
         Some(token) => token.to_owned(),
@@ -293,10 +517,10 @@ fn handle_comparison(tokens : &mut impl TokenBuffer) -> Result<Expression, Compi
 
     while tokens.match_next(&[TokenType::Greater, TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual]) {
         let operator = token;
-        let right = handle_term(tokens)?;
-        expr = Expression::Binary {
+        let right = handle_noun(tokens)?;
+        expr = Phrase::Condition {
             left: Box::new(expr),
-            operator: Operator::from(operator.name),
+            conjunction: Conjunction::from(operator.name),
             right: Box::new(right),
         };
 
@@ -309,10 +533,40 @@ fn handle_comparison(tokens : &mut impl TokenBuffer) -> Result<Expression, Compi
     }
 
     Ok(expr)
-}
+}*/
 
-fn handle_term(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerError> {
-    let mut expr = handle_factor(tokens)?;
+/*fn handle_action(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
+    let mut phrase = handle_term(tokens)?;
+
+    let mut token = match tokens.get_current() {
+        Some(token) => token.to_owned(),
+        None => {
+            return Err(CompilerError::LexicalError("Unexpected EOF".into()));
+        }
+    };
+
+    while tokens.match_next(&[TokenType::Identifier]) {
+        let action = token;
+        let object = handle_term(tokens)?;
+        phrase = Phrase::Action {
+            subject: Some(Box::new(phrase)),
+            verb: Verb::Action(action.lexeme),
+            object: Some(Box::new(object)),
+        };
+
+        token = match tokens.get_current() {
+            Some(token) => token.to_owned(),
+            None => {
+                return Err(CompilerError::LexicalError("Unexpected EOF".into()));
+            }
+        };
+    }
+
+    Ok(phrase)
+}*/
+
+/*fn handle_term(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
+    let mut phrase = handle_factor(tokens)?;
 
     let mut token = match tokens.get_current() {
         Some(token) => token.to_owned(),
@@ -322,12 +576,12 @@ fn handle_term(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerErr
     };
 
     while tokens.match_next(&[TokenType::Minus, TokenType::Plus]) {
-        let operator = token;
-        let right = handle_factor(tokens)?;
-        expr = Expression::Binary {
-            left: Box::new(expr),
-            operator: Operator::from(operator.name),
-            right: Box::new(right),
+        let action = token;
+        let object = handle_factor(tokens)?;
+        phrase = Phrase::Action {
+            subject: Some(Box::new(phrase)),
+            verb: Verb::from(action.name),
+            object: Some(Box::new(object)),
         };
 
         token = match tokens.get_current() {
@@ -338,11 +592,11 @@ fn handle_term(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerErr
         };
     }
 
-    Ok(expr)
-}
+    Ok(phrase)
+}*/
 
-fn handle_factor(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerError> {
-    let mut expr = handle_unary(tokens)?;
+/*fn handle_factor(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
+    let mut phrase = handle_noun(tokens)?;
 
     let mut token = match tokens.get_current() {
         Some(token) => token.to_owned(),
@@ -352,12 +606,12 @@ fn handle_factor(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerE
     };
 
     while tokens.match_next(&[TokenType::Slash, TokenType::Star]) {
-        let operator = token;
-        let right = handle_unary(tokens)?;
-        expr = Expression::Binary {
-            left: Box::new(expr),
-            operator: Operator::from(operator.name),
-            right: Box::new(right),
+        let action = token;
+        let object = handle_noun(tokens)?;
+        phrase = Phrase::Action {
+            subject: Some(Box::new(phrase)),
+            verb: Verb::from(action.name),
+            object: Some(Box::new(object)),
         };
 
         token = match tokens.get_current() {
@@ -368,10 +622,47 @@ fn handle_factor(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerE
         };
     }
 
-    Ok(expr)
+    Ok(phrase)
+}*/
+
+fn handle_noun(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
+    //handle_collective(tokens)
+    todo!()
 }
 
-fn handle_unary(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerError> {
+fn handle_collective(tokens : &mut impl TokenBuffer, noun: Phrase) -> Result<Phrase, CompilerError> {
+    let mut phrases = Vec::<Phrase>::new();
+    //phrases.push(handle_postfix(tokens, noun)?);
+
+    while tokens.match_next(&[TokenType::Comma]) {
+        if tokens.match_next(&[TokenType::And, TokenType::Or]) {
+            //phrases.push(handle_postfix(tokens)?);
+            break;
+        } else {
+            //phrases.push(handle_postfix(tokens)?);
+        }
+    };
+
+    if phrases.len() == 1 {
+        phrases.first()
+            .map(|phr| phr.to_owned())
+            .ok_or(CompilerError::LexicalError("Empty collective".into()))
+    } else {
+        Ok(Phrase::Primary(Primitive::Collective(phrases.into())))
+    }
+}
+
+fn handle_postfix<'a, Buffer>(tokens : &mut Buffer, noun: Phrase) -> Result<Phrase, CompilerError> 
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
+    if tokens.match_next(&[TokenType::When]) {
+        let adjective = handle_adjective(tokens, 0)?;
+        
+        return Ok(Phrase::Postfix {
+            noun: Box::new(noun),
+            adjective: Box::new(adjective),
+        });
+    }
+
     let token = match tokens.get_current() {
         Some(token) => token.to_owned(),
         None => {
@@ -379,59 +670,132 @@ fn handle_unary(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerEr
         }
     };
 
-    if tokens.match_next(&[TokenType::Bang, TokenType::Minus]) {
-        let operator = token;
-        let right = handle_unary(tokens)?;
-        return Ok(Expression::Unary {
-            operator: if operator.name == TokenType::Minus { Operator::Negation } else { Operator::from(operator.name) },
-            right: Box::new(right),
-        });
-    }
-
-    handle_call(tokens)
+    tokens.advance();
+    let msg = format!("[line {}] Error at '{}': {} is invalid postfix operator.", token.line, token.lexeme, token.name);
+    Err(CompilerError::LexicalError(msg.into()))
 }
 
-fn handle_call(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerError> {
-    let mut expr = handle_primary(tokens)?;
+fn handle_prefix<'a, Buffer>(tokens : &mut Buffer, token: Token) -> Result<Phrase, CompilerError> 
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
+    if let Precedent::Prefix(bp) = token.name.precedent() {
+        let prefix = match token.name {
+            TokenType::Not => Prefix::Not,
+            TokenType::Minus => Prefix::Negation,
+            TokenType::The => {
+                let prefix_token = tokens.consume(TokenType::Identifier)?;
+                Prefix::Adjective(prefix_token.lexeme.clone())
+            },
+            _ => Prefix::None,
+        };
 
-    loop {
-        if tokens.match_next(&[TokenType::LeftParen]) {
-            let mut arguments = Vec::new();
-            if !tokens.peek_next(TokenType::RightParen) {
-                loop {
-                    if arguments.len() >= 255 {
-                        eprint!("Can't have more than 255 arguments.");
-                    }
-
-                    arguments.push(handle_phrase(tokens)?);
-                    if !tokens.match_next(&[TokenType::Comma]) {
-                        break;
-                    }
-                }
-            }
-
-            if let Err(error) = tokens.consume(TokenType::RightParen) {
-                return Err(error);
-            }
-
-            expr = Expression::Call {
-                callee: Box::new(expr),
-                arguments: arguments.into(),
-            };
-        } else {
-            break;
+        if prefix == Prefix::None {
+            let msg = format!("[line {}] Error at '{}': {} is unrecognised prefix operator.", token.line, token.lexeme, token.name);
+            return Err(CompilerError::LexicalError(msg.into()))
         }
+        
+        let phrase = handle_phrase(tokens, bp)?;
+        Ok(Phrase::Prefix {
+            prefix,
+            noun: Box::new(phrase),
+        })
+    } else {
+        let msg = format!("[line {}] Error at '{}': {} is invalid prefix operator.", token.line, token.lexeme, token.name);
+        Err(CompilerError::LexicalError(msg.into()))
     }
-
-    Ok(expr)
 }
 
-fn handle_primary(tokens : &mut impl TokenBuffer) -> Result<Expression, CompilerError> {
+/*fn handle_adjective(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
     if tokens.match_next(&[TokenType::False]) {
-        return Ok(Expression::Primary(LiteralExpression::False));
+        return Ok(Phrase::Primary(Primitive::False));
     }
     if tokens.match_next(&[TokenType::True]) {
-        return Ok(Expression::Primary(LiteralExpression::True));
+        return Ok(Phrase::Primary(Primitive::True));
+    }
+
+    handle_condition(tokens)
+}*/
+
+fn handle_adjective<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<Phrase, CompilerError>
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
+    let category = tokens.next().map(|t| t.to_owned().to_category());
+
+    let mut phrase = match category {
+        Some(TokenCategory::Atom(token)) => handle_atom(token)?,
+        Some(TokenCategory::Op(_)) => {
+            return Err(CompilerError::LexicalError("Unsupported adjective as prefix".into()));
+        },
+        Some(TokenCategory::EOF) => {
+            return Err(CompilerError::LexicalError("Unexpected EOF".into()));
+        },
+        None => {
+            return Err(CompilerError::LexicalError("Unexpected EOF".into()));
+        }
+    };
+
+    loop {
+        // Check if there is an operator after the adjective, break the loop otherwise
+        let op = match tokens.get_current().map(|t| t.to_owned().to_category()) {
+            Some(TokenCategory::Op(token)) => token,
+            Some(TokenCategory::Atom(token @ Token { name: TokenType::Identifier, .. })) => token,
+            Some(TokenCategory::Atom(token)) => {
+                let msg = format!("[line {}] Error at '{}': {} is invalid operator.", token.line, token.lexeme, token.name);
+                return Err(CompilerError::LexicalError(msg.into()));
+            },
+            Some(TokenCategory::EOF) => break,
+            None => break,
+        };
+
+        match op.name.precedent() {
+            Precedent::Infix(l_bp, r_bp) => {
+                if l_bp < precedent { break; }
+                tokens.next();
+
+                let object = handle_adjective(tokens, r_bp)?;
+    
+                phrase = Phrase::Condition {
+                    left: Box::new(phrase),
+                    conjunction: op.name.into(),
+                    right: Box::new(object),
+                };
+
+                continue;
+            },
+            _ => { break; },
+        };
+    }
+
+    Ok(phrase)
+}
+
+fn handle_atom(token : Token) -> Result<Phrase, CompilerError> {
+    if token.name == TokenType::It {
+        return Ok(Phrase::Primary(Primitive::It));
+    }
+
+    if token.name == TokenType::False {
+        return Ok(Phrase::Primary(Primitive::False));
+    }
+    if token.name == TokenType::True {
+        return Ok(Phrase::Primary(Primitive::True));
+    }
+
+    if token.name == TokenType::Number {
+        return Ok(Phrase::Primary(Primitive::Number(token.lexeme)));
+    }
+    if token.name == TokenType::Text {
+        return Ok(Phrase::Primary(Primitive::Text(token.lexeme)));
+    }
+    if token.name == TokenType::Identifier {
+        return Ok(Phrase::Primary(Primitive::Variable(token.lexeme)));
+    }
+
+    let msg = format!("At '{}' [line {}], invalid noun or adjective", token.lexeme, token.line);
+    Err(CompilerError::LexicalError(msg.into()))
+}
+
+/*fn handle_primitive(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
+    if tokens.match_next(&[TokenType::It]) {
+        return Ok(Phrase::Primary(Primitive::It));
     }
 
     let token = match tokens.get_current() {
@@ -442,26 +806,16 @@ fn handle_primary(tokens : &mut impl TokenBuffer) -> Result<Expression, Compiler
     };
     
     if tokens.match_next(&[TokenType::Number]) {
-        return Ok(Expression::Primary(LiteralExpression::Number(token.lexeme)));
+        return Ok(Phrase::Primary(Primitive::Number(token.lexeme)));
     }
     if tokens.match_next(&[TokenType::Text]) {
-        return Ok(Expression::Primary(LiteralExpression::String(token.lexeme)));
+        return Ok(Phrase::Primary(Primitive::Text(token.lexeme)));
     }
     if tokens.match_next(&[TokenType::Identifier]) {
-        return Ok(Expression::Primary(LiteralExpression::Variable(token.lexeme)));
-    }
-
-    if tokens.match_next(&[TokenType::LeftParen]) {
-        let expr = handle_phrase(tokens)?;
-
-        if let Err(error) = tokens.consume(TokenType::RightParen) {
-            return Err(error);
-        }
-
-        return Ok(Expression::Primary(LiteralExpression::Group(Box::new(expr))));
+        return Ok(Phrase::Primary(Primitive::Variable(token.lexeme)));
     }
 
     tokens.advance();
-    let msg = format!("[line {}] Error at '{}': Expect expression.", token.line, token.lexeme);
+    let msg = format!("At '{}' [line {}], invalid phrase", token.lexeme, token.line);
     Err(CompilerError::LexicalError(msg.into()))
-}
+}*/

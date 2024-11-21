@@ -5,7 +5,9 @@ use std::fmt;
 use std::rc::Rc;
 use serde::{Deserialize, Serialize};
 
+use crate::compilation::datatype::Datatype;
 use crate::compilation::errors::CompilerError;
+use crate::compilation::precedent::Precedent;
 
 #[derive(Default, Clone, Debug, Deserialize, Serialize)]
 pub struct Token {
@@ -33,7 +35,10 @@ impl Token {
             ("it".into(), TokenType::It),
             ("noun".into(), TokenType::Noun),
             ("not".into(), TokenType::Not),
+            ("number".into(), TokenType::Type(Datatype::Number)),
             ("or".into(), TokenType::Or),
+            ("so".into(), TokenType::So),
+            ("text".into(), TokenType::Type(Datatype::Text)),
             ("the".into(), TokenType::The),
             ("to".into(), TokenType::To),
             ("true".into(), TokenType::True),
@@ -41,6 +46,60 @@ impl Token {
             ("when".into(), TokenType::When),
         ]).into()
     }
+
+    pub fn to_category(self) -> TokenCategory {
+        match &self.name {
+            TokenType::None => TokenCategory::Atom(self),
+            TokenType::Identifier => TokenCategory::Atom(self),
+            TokenType::Number => TokenCategory::Atom(self),
+            TokenType::False => TokenCategory::Atom(self),
+            TokenType::True => TokenCategory::Atom(self),
+            TokenType::Text => TokenCategory::Atom(self),
+            TokenType::Type(_) => TokenCategory::Atom(self),
+            TokenType::It => TokenCategory::Atom(self),
+
+            TokenType::LeftParen => TokenCategory::Op(self),
+            TokenType::RightParen => TokenCategory::Op(self),
+            TokenType::LeftBrace => TokenCategory::Op(self),
+            TokenType::RightBrace => TokenCategory::Op(self),
+            TokenType::Comma => TokenCategory::Op(self),
+            TokenType::Dot => TokenCategory::Op(self),
+            TokenType::Minus =>TokenCategory::Op(self),
+            TokenType::Plus => TokenCategory::Op(self),
+            TokenType::Slash =>TokenCategory::Op(self),
+            TokenType::Star => TokenCategory::Op(self),
+            TokenType::Equal => TokenCategory::Op(self),
+            TokenType::Tilde => TokenCategory::Op(self),
+            TokenType::Bang => TokenCategory::Op(self),
+            TokenType::Greater => TokenCategory::Op(self),
+            TokenType::GreaterEqual => TokenCategory::Op(self),
+            TokenType::Less => TokenCategory::Op(self),
+            TokenType::LessEqual => TokenCategory::Op(self),
+
+            TokenType::Adjective => TokenCategory::Op(self),
+            TokenType::And => TokenCategory::Op(self),
+            TokenType::As => TokenCategory::Op(self),
+            TokenType::For => TokenCategory::Op(self),
+            TokenType::Hence => TokenCategory::Op(self),
+            TokenType::Is => TokenCategory::Op(self),
+            TokenType::Noun => TokenCategory::Op(self),
+            TokenType::Not => TokenCategory::Op(self),
+            TokenType::Or => TokenCategory::Op(self),
+            TokenType::So => TokenCategory::Op(self),
+            TokenType::The => TokenCategory::Op(self),
+            TokenType::To => TokenCategory::Op(self),
+            TokenType::Verb => TokenCategory::Op(self),
+            TokenType::When => TokenCategory::Op(self),
+
+            TokenType::EOF => TokenCategory::EOF,
+        }
+    }
+}
+
+pub enum TokenCategory {
+    Atom(Token),
+    Op(Token),
+    EOF,
 }
 
 pub trait TokenCollection {
@@ -110,7 +169,7 @@ pub enum TokenType {
     Identifier,
     Number,
     Text,
-    Type,
+    Type(Datatype),
   
     // Keywords.
     Adjective,
@@ -124,6 +183,7 @@ pub enum TokenType {
     Noun,
     Not,
     Or,
+    So,
     The,
     To,
     True,
@@ -136,6 +196,15 @@ pub enum TokenType {
 impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+impl TokenType {
+    pub fn precedent(&self) -> Precedent {
+        match self {
+            TokenType::And => todo!(),
+            _ => Precedent::None,
+        }
     }
 }
 
