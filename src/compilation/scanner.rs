@@ -126,6 +126,7 @@ fn scan_token(source: &mut SourceBuffer, line: &mut u32, keywords: &HashMap<Rc<s
             handle_identifier(source, keywords)
         } else {
             eprintln!("[line {}] Error: Unexpected character: {}", line, c);
+            if is_digit(c) { eprintln!("    Wrap any number literal with [ ]"); }
             *error_count += 1;
             TokenType::None
         },
