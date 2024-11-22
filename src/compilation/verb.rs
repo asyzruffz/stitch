@@ -37,6 +37,7 @@ impl From<TokenType> for Verb {
             TokenType::Minus => Verb::Subtract,
             TokenType::Plus => Verb::Add,
             TokenType::As => Verb::Assign,
+            TokenType::Identifier => Verb::Action("<Action>".into()),
             _ => Verb::None,
         }
     }

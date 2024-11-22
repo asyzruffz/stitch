@@ -44,9 +44,9 @@ impl fmt::Display for Statement {
             Statement::Verb { name, hence_type, subject_type, object_types, .. } => 
                 write!(f, "verb {name} is {hence_type:?} for {subject_type:?} when {} {{..}}",
                     object_types.iter().map(|s| s.to_string()).collect::<Vec<_>>().join(", ")),
-            Statement::Adjective { name, subject_type, .. } => write!(f, "adjective {name} for {subject_type}"),
+            Statement::Adjective { name, subject_type, .. } => write!(f, "adjective {name} for {subject_type} {{..}}"),
             Statement::So { name, datatype, initializer: Some(init) } => write!(f, "so {name} is {datatype} as {init}"),
-            Statement::So { name, datatype, initializer } => write!(f, "so {name} is {datatype} as {initializer:?}"),
+            Statement::So { name, datatype, .. } => write!(f, "so {name} is {datatype}"),
             Statement::Phrase(phrase) => write!(f, "{phrase}."),
             Statement::Hence(phrase) => write!(f, "hence {phrase}."),
             //Statement::Block(stmnts) => write!(f, "{{{}\n}}", stmnts.as_ref().iter().map(|s| s.to_string()).collect::<Vec<_>>().join("\n\t")),

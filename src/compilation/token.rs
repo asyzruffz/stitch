@@ -78,7 +78,6 @@ impl From<Token> for TokenCategory {
             TokenType::Star => TokenCategory::Op(value),
             TokenType::Equal => TokenCategory::Op(value),
             TokenType::Tilde => TokenCategory::Op(value),
-            TokenType::Bang => TokenCategory::Op(value),
             TokenType::Greater => TokenCategory::Op(value),
             TokenType::GreaterEqual => TokenCategory::Op(value),
             TokenType::Less => TokenCategory::Op(value),
@@ -107,7 +106,6 @@ impl From<Token> for TokenCategory {
 pub trait TokenCollection {
     fn add(&mut self, token: TokenType, text: Option<&str>, line: u32);
 }
-
 
 impl TokenCollection for Vec<Token> {
     fn add(&mut self, token: TokenType, text: Option<&str>, line: u32) {
@@ -159,7 +157,7 @@ pub enum TokenType {
     Star,
     Equal,
     Tilde,
-    Bang,
+    //Bang, Used for comment, not tokenized
   
     // One or two character tokens.
     Greater,
@@ -204,7 +202,41 @@ impl fmt::Display for TokenType {
 impl TokenType {
     pub fn precedent(&self) -> Precedent {
         match self {
-            TokenType::And => todo!(),
+            TokenType::Identifier => Precedent::Infix(1, 2),
+
+            TokenType::When => Precedent::Postfix(3),
+
+            TokenType::As => Precedent::Infix(5, 4),
+
+            TokenType::Or => Precedent::Infix(6, 7),
+            TokenType::And => Precedent::Infix(8, 9),
+            TokenType::Equal | TokenType::Tilde => Precedent::Infix(10, 11),
+            TokenType::Greater | TokenType::GreaterEqual | TokenType::Less | TokenType::LessEqual => Precedent::Infix(12, 13),
+
+            TokenType::Minus => Precedent::Infix(14, 15),
+            TokenType::Plus => Precedent::Infix(14, 15),
+            TokenType::Slash | TokenType::Star => Precedent::Infix(16, 17),
+
+            TokenType::Not => Precedent::Prefix(18),
+            TokenType::The => Precedent::Prefix(19),
+
+            // Separated in case refactor make these ones have precedent
+            TokenType::LeftParen => Precedent::None,
+            TokenType::RightParen => Precedent::None,
+            TokenType::LeftBrace => Precedent::None,
+            TokenType::RightBrace => Precedent::None,
+
+            TokenType::Adjective => Precedent::None,
+            TokenType::Comma => Precedent::None,
+            TokenType::Dot => Precedent::None,
+            TokenType::For => Precedent::None,
+            TokenType::Hence => Precedent::None,
+            TokenType::Is => Precedent::None,
+            TokenType::Noun => Precedent::None,
+            TokenType::So => Precedent::None,
+            TokenType::To => Precedent::None,
+            TokenType::Verb => Precedent::None,
+
             _ => Precedent::None,
         }
     }

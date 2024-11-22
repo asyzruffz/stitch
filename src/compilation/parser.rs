@@ -392,7 +392,6 @@ fn handle_phrase<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<Phra
         match op.name.precedent() {
             Precedent::Postfix(l_bp) => {
                 if l_bp < precedent { break; }
-                tokens.next();
     
                 phrase = handle_postfix(tokens, phrase)?;
 
@@ -675,21 +674,26 @@ fn handle_collective<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<
 
 fn handle_postfix<'a, Buffer>(tokens : &mut Buffer, noun: Phrase) -> Result<Phrase, CompilerError> 
     where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
-    if tokens.match_next(&[TokenType::When]) {
-        let adjective = handle_adjective(tokens, 0)?;
-        
-        return Ok(Phrase::Postfix {
-            noun: Box::new(noun),
-            adjective: Box::new(adjective),
-        });
-    }
-
     let token = match tokens.get_current() {
         Some(token) => token.to_owned(),
         None => {
             return Err(CompilerError::LexicalError("Unexpected EOF".into()));
         }
     };
+
+    if tokens.match_next(&[TokenType::When]) {
+        if let Precedent::Postfix(r_bp) = token.name.precedent() {
+            let adjective = handle_adjective(tokens, r_bp)?;
+            
+            return Ok(Phrase::Postfix {
+                noun: Box::new(noun),
+                adjective: Box::new(adjective),
+            });
+        } else { 
+            let msg = format!("[line {}] Error at '{}': {} has a wrong precedent type.", token.line, token.lexeme, token.name);
+            return Err(CompilerError::LexicalError(msg.into()))
+        }
+    }
 
     tokens.advance();
     let msg = format!("[line {}] Error at '{}': {} is invalid postfix operator.", token.line, token.lexeme, token.name);
