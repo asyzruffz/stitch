@@ -5,7 +5,7 @@ use crate::compilation::datatype::Datatype;
 use crate::compilation::phrase::Phrase;
 use crate::compilation::primitive::Primitive;
 use crate::compilation::prefix::Prefix;
-use crate::compilation::statement::Statement;
+use crate::compilation::statement::{Statement, Statements};
 use crate::compilation::errors::CompilerError;
 
 use super::precedent::Precedent;
@@ -146,7 +146,7 @@ fn handle_noun_definition<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement,
     Ok(Statement::Noun {
         name: name_token.lexeme,
         super_type,
-        body: definitions.into(),
+        body: Statements(definitions.into()),
     })
 }
 
@@ -211,7 +211,7 @@ fn handle_verb_definition<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement,
         hence_type,
         subject_type,
         object_types: parameters.into(),
-        body: sentences.into(),
+        body: Statements(sentences.into()),
     })
 }
 
@@ -284,7 +284,7 @@ fn handle_adjective_definition<'a, Buffer>(tokens : &mut Buffer) -> Result<State
     Ok(Statement::Adjective {
         name: name_token.lexeme,
         subject_type,
-        body: sentences.into(),
+        body: Statements(sentences.into()),
     })
 }
 
@@ -319,8 +319,20 @@ fn handle_so_declaration<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement, 
         },
     };
 
+    let token = match tokens.get_current() {
+        Some(token) => token.to_owned(),
+        None => {
+            return Err(CompilerError::LexicalError("Unexpected EOF".into()));
+        }
+    };
+
     let initializer = if tokens.match_next(&[TokenType::As]) {
-        Some(handle_phrase(tokens, 0)?)
+        if let Precedent::Infix(_, r_bp) = token.name.precedent() {
+            Some(handle_phrase(tokens, r_bp)?)
+        } else { 
+            let msg = format!("[line {}] Error at '{}': {} has a wrong precedent type.", token.line, token.lexeme, token.name);
+            return Err(CompilerError::LexicalError(msg.into()))
+        }
     } else { None };
 
     Ok(Statement::So {
