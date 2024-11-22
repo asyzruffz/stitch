@@ -46,60 +46,62 @@ impl Token {
             ("when".into(), TokenType::When),
         ]).into()
     }
-
-    pub fn to_category(self) -> TokenCategory {
-        match &self.name {
-            TokenType::None => TokenCategory::Atom(self),
-            TokenType::Identifier => TokenCategory::Atom(self),
-            TokenType::Number => TokenCategory::Atom(self),
-            TokenType::False => TokenCategory::Atom(self),
-            TokenType::True => TokenCategory::Atom(self),
-            TokenType::Text => TokenCategory::Atom(self),
-            TokenType::Type(_) => TokenCategory::Atom(self),
-            TokenType::It => TokenCategory::Atom(self),
-
-            TokenType::LeftParen => TokenCategory::Op(self),
-            TokenType::RightParen => TokenCategory::Op(self),
-            TokenType::LeftBrace => TokenCategory::Op(self),
-            TokenType::RightBrace => TokenCategory::Op(self),
-            TokenType::Comma => TokenCategory::Op(self),
-            TokenType::Dot => TokenCategory::Op(self),
-            TokenType::Minus =>TokenCategory::Op(self),
-            TokenType::Plus => TokenCategory::Op(self),
-            TokenType::Slash =>TokenCategory::Op(self),
-            TokenType::Star => TokenCategory::Op(self),
-            TokenType::Equal => TokenCategory::Op(self),
-            TokenType::Tilde => TokenCategory::Op(self),
-            TokenType::Bang => TokenCategory::Op(self),
-            TokenType::Greater => TokenCategory::Op(self),
-            TokenType::GreaterEqual => TokenCategory::Op(self),
-            TokenType::Less => TokenCategory::Op(self),
-            TokenType::LessEqual => TokenCategory::Op(self),
-
-            TokenType::Adjective => TokenCategory::Op(self),
-            TokenType::And => TokenCategory::Op(self),
-            TokenType::As => TokenCategory::Op(self),
-            TokenType::For => TokenCategory::Op(self),
-            TokenType::Hence => TokenCategory::Op(self),
-            TokenType::Is => TokenCategory::Op(self),
-            TokenType::Noun => TokenCategory::Op(self),
-            TokenType::Not => TokenCategory::Op(self),
-            TokenType::Or => TokenCategory::Op(self),
-            TokenType::So => TokenCategory::Op(self),
-            TokenType::The => TokenCategory::Op(self),
-            TokenType::To => TokenCategory::Op(self),
-            TokenType::Verb => TokenCategory::Op(self),
-            TokenType::When => TokenCategory::Op(self),
-
-            TokenType::EOF => TokenCategory::EOF,
-        }
-    }
 }
 
 pub enum TokenCategory {
     Atom(Token),
     Op(Token),
     EOF,
+}
+
+impl From<Token> for TokenCategory {
+    fn from(value: Token) -> Self {
+        match &value.name {
+            TokenType::None => TokenCategory::Atom(value),
+            TokenType::Identifier => TokenCategory::Atom(value),
+            TokenType::Number => TokenCategory::Atom(value),
+            TokenType::False => TokenCategory::Atom(value),
+            TokenType::True => TokenCategory::Atom(value),
+            TokenType::Text => TokenCategory::Atom(value),
+            TokenType::Type(_) => TokenCategory::Atom(value),
+            TokenType::It => TokenCategory::Atom(value),
+
+            TokenType::LeftParen => TokenCategory::Op(value),
+            TokenType::RightParen => TokenCategory::Op(value),
+            TokenType::LeftBrace => TokenCategory::Op(value),
+            TokenType::RightBrace => TokenCategory::Op(value),
+            TokenType::Comma => TokenCategory::Op(value),
+            TokenType::Dot => TokenCategory::Op(value),
+            TokenType::Minus =>TokenCategory::Op(value),
+            TokenType::Plus => TokenCategory::Op(value),
+            TokenType::Slash =>TokenCategory::Op(value),
+            TokenType::Star => TokenCategory::Op(value),
+            TokenType::Equal => TokenCategory::Op(value),
+            TokenType::Tilde => TokenCategory::Op(value),
+            TokenType::Bang => TokenCategory::Op(value),
+            TokenType::Greater => TokenCategory::Op(value),
+            TokenType::GreaterEqual => TokenCategory::Op(value),
+            TokenType::Less => TokenCategory::Op(value),
+            TokenType::LessEqual => TokenCategory::Op(value),
+
+            TokenType::Adjective => TokenCategory::Op(value),
+            TokenType::And => TokenCategory::Op(value),
+            TokenType::As => TokenCategory::Op(value),
+            TokenType::For => TokenCategory::Op(value),
+            TokenType::Hence => TokenCategory::Op(value),
+            TokenType::Is => TokenCategory::Op(value),
+            TokenType::Noun => TokenCategory::Op(value),
+            TokenType::Not => TokenCategory::Op(value),
+            TokenType::Or => TokenCategory::Op(value),
+            TokenType::So => TokenCategory::Op(value),
+            TokenType::The => TokenCategory::Op(value),
+            TokenType::To => TokenCategory::Op(value),
+            TokenType::Verb => TokenCategory::Op(value),
+            TokenType::When => TokenCategory::Op(value),
+
+            TokenType::EOF => TokenCategory::EOF,
+        }
+    }
 }
 
 pub trait TokenCollection {

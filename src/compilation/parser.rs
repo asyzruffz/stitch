@@ -363,7 +363,7 @@ fn handle_sentence<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement, Compil
 
 fn handle_phrase<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<Phrase, CompilerError>
     where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
-    let category = tokens.next().map(|t| t.to_owned().to_category());
+    let category = tokens.next().map(|t| TokenCategory::from(t.to_owned()));
 
     let mut phrase = match category {
         Some(TokenCategory::Atom(token)) => handle_atom(token)?,
@@ -378,7 +378,7 @@ fn handle_phrase<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<Phra
 
     loop {
         // Check if there is an operator after the phrase, break the loop otherwise
-        let op = match tokens.get_current().map(|t| t.to_owned().to_category()) {
+        let op = match tokens.get_current().map(|t| TokenCategory::from(t.to_owned())) {
             Some(TokenCategory::Op(token)) => token,
             Some(TokenCategory::Atom(token @ Token { name: TokenType::Identifier, .. })) => token,
             Some(TokenCategory::Atom(token)) => {
@@ -738,7 +738,7 @@ fn handle_prefix<'a, Buffer>(tokens : &mut Buffer, token: Token) -> Result<Phras
 
 fn handle_adjective<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<Phrase, CompilerError>
     where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
-    let category = tokens.next().map(|t| t.to_owned().to_category());
+    let category = tokens.next().map(|t| TokenCategory::from(t.to_owned()));
 
     let mut phrase = match category {
         Some(TokenCategory::Atom(token)) => handle_atom(token)?,
@@ -755,7 +755,7 @@ fn handle_adjective<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<P
 
     loop {
         // Check if there is an operator after the adjective, break the loop otherwise
-        let op = match tokens.get_current().map(|t| t.to_owned().to_category()) {
+        let op = match tokens.get_current().map(|t| TokenCategory::from(t.to_owned())) {
             Some(TokenCategory::Op(token)) => token,
             Some(TokenCategory::Atom(token @ Token { name: TokenType::Identifier, .. })) => token,
             Some(TokenCategory::Atom(token)) => {
