@@ -92,9 +92,9 @@ impl Compiler<Ready> {
             .flatten()
             .collect::<Vec<_>>();
 
-        for token in &tokens {
+        /*for token in &tokens {
             println!("{token}");
-        }
+        }*/
 
         Ok(Compiler {
             state: Tokenized { tokens: tokens.into() }

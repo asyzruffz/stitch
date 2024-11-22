@@ -4,8 +4,6 @@ use crate::compilation::token::{Token, TokenCategory, TokenType, TokenBuffer};
 use crate::compilation::datatype::Datatype;
 use crate::compilation::phrase::Phrase;
 use crate::compilation::primitive::Primitive;
-use crate::compilation::verb::Verb;
-use crate::compilation::conjunction::Conjunction;
 use crate::compilation::prefix::Prefix;
 use crate::compilation::statement::Statement;
 use crate::compilation::errors::CompilerError;
@@ -404,7 +402,7 @@ fn handle_phrase<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<Phra
                 if l_bp < precedent { break; }
                 tokens.next();
 
-                let object = handle_phrase(tokens, r_bp)?;
+                let object = handle_collective(tokens, r_bp)?;
     
                 phrase = Phrase::Action {
                     subject: Some(Box::new(phrase)),
@@ -625,30 +623,53 @@ fn handle_or(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
     Ok(phrase)
 }*/
 
-fn handle_noun(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
-    //handle_collective(tokens)
-    todo!()
-}
+/*fn handle_noun(tokens : &mut impl TokenBuffer) -> Result<Phrase, CompilerError> {
+    handle_collective(tokens)
+}*/
 
-fn handle_collective(tokens : &mut impl TokenBuffer, noun: Phrase) -> Result<Phrase, CompilerError> {
+fn handle_collective<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<Phrase, CompilerError> 
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
     let mut phrases = Vec::<Phrase>::new();
-    //phrases.push(handle_postfix(tokens, noun)?);
+    phrases.push(handle_phrase(tokens, precedent)?);
 
-    while tokens.match_next(&[TokenType::Comma]) {
-        if tokens.match_next(&[TokenType::And, TokenType::Or]) {
-            //phrases.push(handle_postfix(tokens)?);
-            break;
-        } else {
-            //phrases.push(handle_postfix(tokens)?);
+    match tokens.get_current().cloned() {
+        None => {
+            phrases.first()
+                .map(|phr| phr.to_owned())
+                .ok_or(CompilerError::LexicalError("Empty collective".into()))
         }
-    };
+        Some(current) => {
+            let token = current;
 
-    if phrases.len() == 1 {
-        phrases.first()
-            .map(|phr| phr.to_owned())
-            .ok_or(CompilerError::LexicalError("Empty collective".into()))
-    } else {
-        Ok(Phrase::Primary(Primitive::Collective(phrases.into())))
+            while tokens.match_next(&[TokenType::Comma]) {
+
+                if tokens.match_next(&[TokenType::And, TokenType::Or]) {
+                    if let Precedent::Infix(_, r_bp) = token.name.precedent() {
+                        phrases.push(handle_phrase(tokens, r_bp)?);
+                    } else { 
+                        let msg = format!("[line {}] Error at '{}': {} has a wrong precedent type.", token.line, token.lexeme, token.name);
+                        return Err(CompilerError::LexicalError(msg.into()))
+                    }
+
+                    break;
+                } else {
+                    if let Precedent::Infix(_, r_bp) = token.name.precedent() {
+                        phrases.push(handle_phrase(tokens, r_bp)?);
+                    } else { 
+                        let msg = format!("[line {}] Error at '{}': {} has a wrong precedent type.", token.line, token.lexeme, token.name);
+                        return Err(CompilerError::LexicalError(msg.into()))
+                    }
+                }
+            };
+
+            if phrases.len() == 1 {
+                phrases.first()
+                    .map(|phr| phr.to_owned())
+                    .ok_or(CompilerError::LexicalError("Empty collective".into()))
+            } else {
+                Ok(Phrase::Primary(Primitive::Collective(phrases.into())))
+            }
+        }
     }
 }
 
