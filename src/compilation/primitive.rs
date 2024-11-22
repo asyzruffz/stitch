@@ -14,7 +14,6 @@ pub enum Primitive {
     It,
     Variable(Rc<str>),
     Collective(Rc<[Phrase]>),
-    //Group(Box<Expression>),
 }
 
 impl fmt::Display for Primitive {
@@ -29,7 +28,6 @@ impl fmt::Display for Primitive {
             Primitive::Variable(name) => write!(f, "{name}"),
             Primitive::Collective(exprs) => write!(f, "({})", exprs.as_ref()
                 .iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")),
-            //Primitive::Group(expr) => write!(f, "(group {expr})"),
         }
     }
 }
