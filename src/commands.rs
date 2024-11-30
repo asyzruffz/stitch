@@ -13,7 +13,8 @@ pub fn create_project(name: &str) {
 pub fn build_project() {
     let result = Compiler::new()
         .and_then(Compiler::tokenize)
-        .and_then(Compiler::parse);
+        .and_then(Compiler::parse)
+        .and_then(Compiler::evaluate);
 
     if let Err(error) = result {
         eprintln!("{}", error);
@@ -32,7 +33,8 @@ pub fn clean_and_build_project() {
     let result = Compiler::clean()
         .and_then(|_| Compiler::new())
         .and_then(Compiler::tokenize)
-        .and_then(Compiler::parse);
+        .and_then(Compiler::parse)
+        .and_then(Compiler::evaluate);
 
     if let Err(error) = result {
         eprintln!("{}", error);

@@ -1,4 +1,5 @@
 pub mod compiler;
+pub mod intepreter;
 pub mod parser;
 pub mod scanner;
 pub mod errors;
@@ -6,6 +7,8 @@ mod source;
 mod intermediate;
 mod datatype;
 mod phrase;
+mod environment;
+mod evaluation;
 mod primitive;
 mod conjunction;
 mod precedent;

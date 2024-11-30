@@ -4,6 +4,7 @@ use std::fs;
 use walkdir::WalkDir;
 
 use crate::projects::project::Project;
+use crate::compilation::intepreter::Intepreter;
 use crate::compilation::intermediate::Intermediate;
 use crate::compilation::source::Source;
 use crate::compilation::scanner::{self, Scanner};
@@ -107,9 +108,9 @@ impl Compiler<Tokenized> {
         let parser = Parser::new(self.state.tokens)
             .parse()?;
         
-        for statement in parser.statements().as_ref() {
+        /*for statement in parser.statements().as_ref() {
             println!("{statement}");
-        }
+        }*/
     
         Ok(Compiler {
             state: Parsed { statements: parser.statements() }
@@ -119,12 +120,12 @@ impl Compiler<Tokenized> {
 
 impl Compiler<Parsed> {
     pub fn evaluate(self) -> Result<Compiler<Evaluated>, CompilerError> {
-        /*let mut intepreter = Intepreter::new();
+        let mut intepreter = Intepreter::new();
 
-        for statement in self.state.statements {
+        for statement in self.state.statements.as_ref() {
             intepreter.execute(&statement)
                 .map_err(|error| CompilerError::RuntimeError(error))?;
-        }*/
+        }
         
         Ok(Compiler {
             state: Evaluated
