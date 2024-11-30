@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub enum Datatype {
     Number,
     Text,
+    Boolean,
     Custom(Rc<str>),
 }
 
