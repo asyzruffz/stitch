@@ -23,7 +23,7 @@ impl Environment {
     }
 
     pub fn assign(&mut self, var: Variable, value: Evaluation) -> Result<(), String> {
-        if self.contains_var(&var) {
+        if self.contains_var(&var.name) {
             self.values.insert(var, value);
             Ok(())
         } else if let Some(env) = self.outer.as_mut() {
@@ -39,8 +39,8 @@ impl Environment {
                 .and_then(|env| env.get(name)))
     }
 
-    pub fn contains_var(&self, var: &Variable) -> bool {
-        self.values.contains_key(var)
+    pub fn contains_var(&self, name: &str) -> bool {
+        self.values.contains_key(&Variable::with(name))
     }
 }
 
