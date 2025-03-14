@@ -6,6 +6,7 @@ use crate::compilation::environment::{Environment, Variable};
 use crate::compilation::errors::EvaluationError;
 use crate::compilation::evaluation::Evaluation;
 use crate::compilation::phrase::Phrase;
+use crate::compilation::prefix::Prefix;
 use crate::compilation::primitive::Primitive;
 use crate::compilation::statement::Statement;
 
@@ -56,7 +57,7 @@ fn evaluate(phrase : &Phrase, environment: &mut Environment) -> Result<Evaluatio
         Phrase::None => Err(EvaluationError::new("None phrase")),
         Phrase::Primary(primitive) => evaluate_primitive(primitive, environment),
         Phrase::Postfix { noun, adjective } => todo!(),
-        Phrase::Prefix { prefix, noun } => todo!(),
+        Phrase::Prefix { prefix, noun } => evaluate_prefix(prefix, noun, environment),
         Phrase::Action { subject, verb, object } => todo!(),
         Phrase::Condition { left, conjunction, right } => evaluate_condition(conjunction, left, right, environment),
     }
@@ -75,6 +76,42 @@ fn evaluate_primitive(primitive: &Primitive, environment: &Environment) -> Resul
         } else {
             Err(EvaluationError::new(&format!("Undefined variable \"{}\".", name)))
         },
+    }
+}
+
+fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: &mut Environment) -> Result<Evaluation, EvaluationError> {
+    match prefix {
+        Prefix::Not => match evaluate(noun, environment)? {
+            Evaluation::Void => Err(EvaluationError::new("Invalid not prefix for void")),
+            Evaluation::Number(_) => Err(EvaluationError::new("Invalid not prefix for number")),
+            Evaluation::Text(_) => Err(EvaluationError::new("Invalid not prefix for text")),
+            Evaluation::Boolean(value) => Ok(Evaluation::Boolean(!value)),
+            Evaluation::Custom(var) => if let Some(value) = environment.get(var.as_ref()) {
+                match evaluate_truth(value.clone(), environment) {
+                    Ok(Evaluation::Boolean(value)) => Ok(Evaluation::Boolean(!value)),
+                    Ok(_) => unreachable!(),
+                    Err(error) => Err(error),
+                }
+            } else {
+                Err(EvaluationError::new(&format!("Undefined variable {}.", var.as_ref())))
+            },
+        },
+        Prefix::Negation => match evaluate(noun, environment)? {
+            Evaluation::Void => Err(EvaluationError::new("Invalid negation prefix for void")),
+            Evaluation::Number(value) => Ok(Evaluation::Number(-value)),
+            Evaluation::Text(_) => Err(EvaluationError::new("Invalid negation prefix for text")),
+            Evaluation::Boolean(_) => Err(EvaluationError::new("Invalid negation prefix for boolean")),
+            Evaluation::Custom(var) => if let Some(value) = environment.get(var.as_ref()) {
+                match value {
+                    Evaluation::Number(value) => Ok(Evaluation::Number(-value)),
+                    _ => Err(EvaluationError::new(&format!("Invalid negation prefix for variable {}", var.as_ref()))),
+                }
+            } else {
+                Err(EvaluationError::new(&format!("Undefined variable {}.", var.as_ref())))
+            },
+        },
+        Prefix::Adjective(adjective) => todo!(),
+        Prefix::None => Err(EvaluationError::new("None prefix invalid")),
     }
 }
 
