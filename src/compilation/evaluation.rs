@@ -21,3 +21,23 @@ impl fmt::Display for Evaluation {
         }
     }
 }
+
+impl Evaluation {
+    pub fn is_number(&self) -> bool {
+        if let Evaluation::Number(_) = self { true }
+        else { false }
+    }
+
+    pub fn equal(left: &Evaluation, right: &Evaluation) -> bool {
+        match (left, right) {
+            (Evaluation::Void, Evaluation::Void) => true,
+            (Evaluation::Void, _) => false,
+            (_, Evaluation::Void) => false,
+            (Evaluation::Number(lval), Evaluation::Number(rval)) => (lval - rval).abs() < f32::EPSILON,
+            (Evaluation::Text(lval), Evaluation::Text(rval)) => lval.as_ref() == rval.as_ref(),
+            (Evaluation::Boolean(lval), Evaluation::Boolean(rval)) => lval == rval,
+            (Evaluation::Custom(_), Evaluation::Custom(_)) => todo!(),
+            _ => false,
+        }
+    }
+}
