@@ -9,6 +9,8 @@ use crate::compilation::phrase::Phrase;
 use crate::compilation::prefix::Prefix;
 use crate::compilation::primitive::Primitive;
 use crate::compilation::statement::Statement;
+use crate::compilation::verb::Verb;
+
 
 #[derive(Default)]
 pub struct Intepreter {
@@ -58,7 +60,7 @@ fn evaluate(phrase : &Phrase, environment: &mut Environment) -> Result<Evaluatio
         Phrase::Primary(primitive) => evaluate_primitive(primitive, environment),
         Phrase::Postfix { noun, adjective } => todo!(),
         Phrase::Prefix { prefix, noun } => evaluate_prefix(prefix, noun, environment),
-        Phrase::Action { subject, verb, object } => todo!(),
+        Phrase::Action { subject, verb, object } => evaluate_action(verb, subject.as_deref(), object.as_deref(), environment),
         Phrase::Condition { left, conjunction, right } => evaluate_condition(conjunction, left, right, environment),
     }
 }
@@ -112,6 +114,59 @@ fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: &mut Environment
         },
         Prefix::Adjective(adjective) => todo!(),
         Prefix::None => Err(EvaluationError::new("None prefix invalid")),
+    }
+}
+
+fn evaluate_action(verb: &Verb, subject : Option<&Phrase>, object : Option<&Phrase>, environment: &mut Environment) -> Result<Evaluation, EvaluationError> {
+    match verb {
+        Verb::Divide | Verb::Multiply | Verb::Subtract | Verb::Add => match (subject, object) {
+            (Some(subject_phrs), Some(object_phrs)) => {
+                let left_phrs = evaluate(subject_phrs, environment);
+                let right_phrs = evaluate(object_phrs, environment);
+    
+                let error = if let Err(err) = left_phrs.clone() { Some(err) } else { None };
+                let error = if let Err(err) = right_phrs.clone() { error.and_then(|e| Some(e.concat(err))) } else { error };
+    
+                if let (Ok(Evaluation::Number(lvalue)),
+                        Ok(Evaluation::Number(rvalue)))
+                            = (left_phrs, right_phrs) {
+    
+                    match verb {
+                        Verb::Divide => Ok(Evaluation::Number(lvalue / rvalue)),
+                        Verb::Multiply => Ok(Evaluation::Number(lvalue * rvalue)),
+                        Verb::Subtract => Ok(Evaluation::Number(lvalue - rvalue)),
+                        Verb::Add => Ok(Evaluation::Number(lvalue + rvalue)),
+                        _ => unreachable!(),
+                    }
+    
+                } else {
+                    Err(EvaluationError::new("Invalid operand not as numbers").concat_if(error))
+                }
+            },
+            _ => Err(EvaluationError::new("Invalid operand as none")),
+        },
+        Verb::Assign => match (subject, object) {
+            (Some(subject_phrs), Some(object_phrs)) => {
+                let assign_phrs = evaluate(object_phrs, environment);
+
+                let error = if let Err(err) = assign_phrs.clone() { Some(err) } else { None };
+
+                if let (Phrase::Primary(Primitive::Variable(name)), Ok(assign_result)) = (subject_phrs, assign_phrs) {
+
+                    if let Err(variable) = environment.assign(Variable::with(name), assign_result.clone()) {
+                        Err(EvaluationError::new(&format!("Undefined variable {}.", variable)).concat_if(error))
+                    } else {
+                        Ok(assign_result)
+                    }
+                    
+                } else {
+                    Err(EvaluationError::new("Invalid assignment target").concat_if(error))
+                }
+            },
+            _ => Err(EvaluationError::new("Invalid assigning none")),
+        },
+        Verb::Action(action) => todo!(),
+        Verb::None => Err(EvaluationError::new("None verb invalid")),
     }
 }
 
