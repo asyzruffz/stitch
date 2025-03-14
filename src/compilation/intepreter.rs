@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 
+use crate::compilation::conjunction::Conjunction;
 use crate::compilation::datatype::Datatype;
 use crate::compilation::environment::{Environment, Variable};
 use crate::compilation::errors::EvaluationError;
