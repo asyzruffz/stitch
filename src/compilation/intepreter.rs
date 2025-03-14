@@ -88,29 +88,14 @@ fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: &mut Environment
             Evaluation::Number(_) => Err(EvaluationError::new("Invalid not prefix for number")),
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid not prefix for text")),
             Evaluation::Boolean(value) => Ok(Evaluation::Boolean(!value)),
-            Evaluation::Custom(var) => if let Some(value) = environment.get(var.as_ref()) {
-                match evaluate_truth(value.clone(), environment) {
-                    Ok(Evaluation::Boolean(value)) => Ok(Evaluation::Boolean(!value)),
-                    Ok(_) => unreachable!(),
-                    Err(error) => Err(error),
-                }
-            } else {
-                Err(EvaluationError::new(&format!("Undefined variable {}.", var.as_ref())))
-            },
+            Evaluation::Custom(typename) => Err(EvaluationError::new(&format!("No implementation of not prefix for {}.", typename))),
         },
         Prefix::Negation => match evaluate(noun, environment)? {
             Evaluation::Void => Err(EvaluationError::new("Invalid negation prefix for void")),
             Evaluation::Number(value) => Ok(Evaluation::Number(-value)),
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid negation prefix for text")),
             Evaluation::Boolean(_) => Err(EvaluationError::new("Invalid negation prefix for boolean")),
-            Evaluation::Custom(var) => if let Some(value) = environment.get(var.as_ref()) {
-                match value {
-                    Evaluation::Number(value) => Ok(Evaluation::Number(-value)),
-                    _ => Err(EvaluationError::new(&format!("Invalid negation prefix for variable {}", var.as_ref()))),
-                }
-            } else {
-                Err(EvaluationError::new(&format!("Undefined variable {}.", var.as_ref())))
-            },
+            Evaluation::Custom(typename) => Err(EvaluationError::new(&format!("No implementation of negation prefix for {}.", typename))),
         },
         Prefix::Adjective(adjective) => todo!(),
         Prefix::None => Err(EvaluationError::new("None prefix invalid")),
@@ -250,16 +235,12 @@ fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase
     }
 }
 
-fn evaluate_truth(value : Evaluation, environment: &mut Environment) -> Result<Evaluation, EvaluationError> {
+fn evaluate_truth(value : Evaluation, environment: &Environment) -> Result<Evaluation, EvaluationError> {
     match value {
         Evaluation::Void => Err(EvaluationError::new("Invalid boolean condition for void")),
-        Evaluation::Number(_) => Ok(Evaluation::Boolean(true)),
+        Evaluation::Number(value) => Ok(Evaluation::Boolean(value != 0.0)),
         Evaluation::Text(_) => Ok(Evaluation::Boolean(true)),
         Evaluation::Boolean(value) => Ok(Evaluation::Boolean(value)),
-        Evaluation::Custom(var) => if let Some(value) = environment.get(var.as_ref()) {
-            evaluate_truth(value.clone(), environment)
-        } else {
-            Err(EvaluationError::new(&format!("Undefined variable {}.", var.as_ref())))
-        },
+        Evaluation::Custom(typename) => Err(EvaluationError::new(&format!("No implementation of truth for {}.", typename))),
     }
 }
