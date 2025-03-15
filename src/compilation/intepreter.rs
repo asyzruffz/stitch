@@ -102,20 +102,24 @@ fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: &mut Environment
     }
 }
 
-fn evaluate_action(verb: &Verb, subject : Option<&Phrase>, object : Option<&Phrase>, environment: &mut Environment) -> Result<Evaluation, EvaluationError> {
+fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Option<&Phrase>, environment: &mut Environment) -> Result<Evaluation, EvaluationError> {
+    let subject = match subject_phrs {
+        Some(subject_phrs @ Phrase::Primary(Primitive::Variable(_))) => match verb {
+            Verb::Assign => None,
+            _ => Some(evaluate(subject_phrs, environment)?),
+        },
+        Some(subject_phrs) => Some(evaluate(subject_phrs, environment)?),
+        None => None,
+    };
+    let object = match object_phrs {
+        Some(object_phrs) => Some(evaluate(object_phrs, environment)?),
+        None => None,
+    };
+
     match verb {
         Verb::Divide | Verb::Multiply | Verb::Subtract | Verb::Add => match (subject, object) {
-            (Some(subject_phrs), Some(object_phrs)) => {
-                let left_phrs = evaluate(subject_phrs, environment);
-                let right_phrs = evaluate(object_phrs, environment);
-    
-                let error = if let Err(err) = left_phrs.clone() { Some(err) } else { None };
-                let error = if let Err(err) = right_phrs.clone() { error.and_then(|e| Some(e.concat(err))) } else { error };
-    
-                if let (Ok(Evaluation::Number(lvalue)),
-                        Ok(Evaluation::Number(rvalue)))
-                            = (left_phrs, right_phrs) {
-    
+            (Some(subject_eval), Some(object_eval)) => match (subject_eval, object_eval) {
+                (Evaluation::Number(lvalue), Evaluation::Number(rvalue)) => {
                     match verb {
                         Verb::Divide => Ok(Evaluation::Number(lvalue / rvalue)),
                         Verb::Multiply => Ok(Evaluation::Number(lvalue * rvalue)),
@@ -123,32 +127,22 @@ fn evaluate_action(verb: &Verb, subject : Option<&Phrase>, object : Option<&Phra
                         Verb::Add => Ok(Evaluation::Number(lvalue + rvalue)),
                         _ => unreachable!(),
                     }
-    
-                } else {
-                    Err(EvaluationError::new("Invalid operand not as numbers").concat_if(error))
                 }
+                _ => Err(EvaluationError::new("Invalid operand not as numbers")),
             },
             _ => Err(EvaluationError::new("Invalid operand as none")),
         },
-        Verb::Assign => match (subject, object) {
-            (Some(subject_phrs), Some(object_phrs)) => {
-                let assign_phrs = evaluate(object_phrs, environment);
-
-                let error = if let Err(err) = assign_phrs.clone() { Some(err) } else { None };
-
-                if let (Phrase::Primary(Primitive::Variable(name)), Ok(assign_result)) = (subject_phrs, assign_phrs) {
-
-                    if let Err(variable) = environment.assign(Variable::with(name), assign_result.clone()) {
-                        Err(EvaluationError::new(&format!("Undefined variable {}.", variable)).concat_if(error))
-                    } else {
-                        Ok(assign_result)
+        Verb::Assign => match subject_phrs {
+            Some(subject_phrs) => match subject_phrs {
+                Phrase::Primary(Primitive::Variable(name)) => {
+                    match environment.assign(Variable::with(name), object.clone().unwrap_or(Evaluation::Void)) {
+                        Err(variable) => Err(EvaluationError::new(&format!("Undefined variable {}.", variable))),
+                        Ok(_) => Ok(object.unwrap_or(Evaluation::Void)),
                     }
-                    
-                } else {
-                    Err(EvaluationError::new("Invalid assignment target").concat_if(error))
                 }
+                _ => Err(EvaluationError::new("Invalid assignment target")),
             },
-            _ => Err(EvaluationError::new("Invalid assigning none")),
+            None => Err(EvaluationError::new("Invalid assigning to none")),
         },
         Verb::Action(action) => todo!(),
         Verb::None => Err(EvaluationError::new("None verb invalid")),
