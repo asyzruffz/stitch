@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use crate::compilation::conjunction::Conjunction;
 use crate::compilation::datatype::Datatype;
@@ -14,12 +15,22 @@ use crate::compilation::verb::Verb;
 
 #[derive(Default)]
 pub struct Intepreter {
-    environment: RefCell<Environment>,
+    environment: Rc<RefCell<Environment>>,
 }
 
 impl Intepreter {
     pub fn new() -> Self {
         Default::default()
+    }
+    
+    pub fn within_scope(outer: Rc<RefCell<Environment>>) -> Self {
+        Self {
+            environment: outer.clone()
+        }
+    }
+
+    pub fn define(&mut self, var: Variable, value: Evaluation) {
+        self.environment.borrow_mut().define(var, value);
     }
 
     pub fn execute(&mut self, statement : &Statement) -> Result<Evaluation, EvaluationError> {
@@ -27,26 +38,26 @@ impl Intepreter {
             Statement::Noun { name, super_type, body } => todo!(),
             Statement::Verb { name, hence_type, subject_type, object_types, body } => todo!(),
             Statement::Adjective { name, subject_type, body } => todo!(),
-            Statement::So { name, datatype, initializer } => declare_so(name, datatype, initializer.as_ref(), &mut self.environment.borrow_mut()),
-            Statement::Phrase(phrase) => evaluate(phrase, &mut self.environment.borrow_mut()),
+            Statement::So { name, datatype, initializer } => declare_so(name, datatype, initializer.as_ref(), self.environment.clone()),
+            Statement::Phrase(phrase) => evaluate(phrase, self.environment.clone()),
             Statement::Hence(phrase) => todo!(),
         }
     }
 }
 
-fn declare_so(name: &str, datatype: &Datatype, initializer : Option<&Phrase>, environment: &mut Environment) -> Result<Evaluation, EvaluationError> {
+fn declare_so(name: &str, datatype: &Datatype, initializer : Option<&Phrase>, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     let variable = Variable::new(name, datatype);
     match initializer {
         None => {
-            environment.define(variable, Evaluation::Void);
+            environment.borrow_mut().define(variable, Evaluation::Void);
             Ok(Evaluation::Void)
         },
         Some(phrase) => {
-            let result = evaluate(phrase, environment)?;
+            let result = evaluate(phrase, environment.clone())?;
             match result {
                 Evaluation::Void => Err(EvaluationError::new("Unable to initialize so declaration as void")),
                 value => {
-                    environment.define(variable, value);
+                    environment.borrow_mut().define(variable, value);
                     Ok(Evaluation::Void)
                 },
             }
@@ -54,18 +65,18 @@ fn declare_so(name: &str, datatype: &Datatype, initializer : Option<&Phrase>, en
     }
 }
 
-fn evaluate(phrase : &Phrase, environment: &mut Environment) -> Result<Evaluation, EvaluationError> {
+fn evaluate(phrase : &Phrase, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     match phrase {
         Phrase::None => Err(EvaluationError::new("None phrase")),
-        Phrase::Primary(primitive) => evaluate_primitive(primitive, environment),
+        Phrase::Primary(primitive) => evaluate_primitive(primitive, environment.clone()),
         Phrase::Postfix { noun, adjective } => todo!(),
-        Phrase::Prefix { prefix, noun } => evaluate_prefix(prefix, noun, environment),
-        Phrase::Action { subject, verb, object } => evaluate_action(verb, subject.as_deref(), object.as_deref(), environment),
+        Phrase::Prefix { prefix, noun } => evaluate_prefix(prefix, noun, environment.clone()),
+        Phrase::Action { subject, verb, object } => evaluate_action(verb, subject.as_deref(), object.as_deref(), environment.clone()),
         Phrase::Condition { left, conjunction, right } => evaluate_condition(conjunction, left, right, environment),
     }
 }
 
-fn evaluate_primitive(primitive: &Primitive, environment: &Environment) -> Result<Evaluation, EvaluationError> {
+fn evaluate_primitive(primitive: &Primitive, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     match primitive {
         Primitive::Number(value) => Ok(Evaluation::Number(value.parse::<f32>().unwrap_or_default())),
         Primitive::Text(value) => Ok(Evaluation::Text(value.clone())),
@@ -73,24 +84,23 @@ fn evaluate_primitive(primitive: &Primitive, environment: &Environment) -> Resul
         Primitive::False => Ok(Evaluation::Boolean(false)),
         Primitive::It => todo!(),
         Primitive::Collective(phrases) => todo!(),
-        Primitive::Variable(name) => if let Some(value) = environment.get(name) {
-            Ok(value.clone())
-        } else {
-            Err(EvaluationError::new(&format!("Undefined variable \"{}\".", name)))
+        Primitive::Variable(name) => match environment.borrow().get(name) {
+            Some(value) => Ok(value),
+            None => Err(EvaluationError::new(&format!("Undefined variable \"{}\".", name))),
         },
     }
 }
 
-fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: &mut Environment) -> Result<Evaluation, EvaluationError> {
+fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     match prefix {
-        Prefix::Not => match evaluate(noun, environment)? {
+        Prefix::Not => match evaluate(noun, environment.clone())? {
             Evaluation::Void => Err(EvaluationError::new("Invalid not prefix for void")),
             Evaluation::Number(_) => Err(EvaluationError::new("Invalid not prefix for number")),
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid not prefix for text")),
             Evaluation::Boolean(value) => Ok(Evaluation::Boolean(!value)),
             Evaluation::Custom(typename) => Err(EvaluationError::new(&format!("No implementation of not prefix for {}.", typename))),
         },
-        Prefix::Negation => match evaluate(noun, environment)? {
+        Prefix::Negation => match evaluate(noun, environment.clone())? {
             Evaluation::Void => Err(EvaluationError::new("Invalid negation prefix for void")),
             Evaluation::Number(value) => Ok(Evaluation::Number(-value)),
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid negation prefix for text")),
@@ -102,17 +112,17 @@ fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: &mut Environment
     }
 }
 
-fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Option<&Phrase>, environment: &mut Environment) -> Result<Evaluation, EvaluationError> {
+fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Option<&Phrase>, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     let subject = match subject_phrs {
         Some(subject_phrs @ Phrase::Primary(Primitive::Variable(_))) => match verb {
             Verb::Assign => None,
-            _ => Some(evaluate(subject_phrs, environment)?),
+            _ => Some(evaluate(subject_phrs, environment.clone())?),
         },
-        Some(subject_phrs) => Some(evaluate(subject_phrs, environment)?),
+        Some(subject_phrs) => Some(evaluate(subject_phrs, environment.clone())?),
         None => None,
     };
     let object = match object_phrs {
-        Some(object_phrs) => Some(evaluate(object_phrs, environment)?),
+        Some(object_phrs) => Some(evaluate(object_phrs, environment.clone())?),
         None => None,
     };
 
@@ -135,7 +145,7 @@ fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Op
         Verb::Assign => match subject_phrs {
             Some(subject_phrs) => match subject_phrs {
                 Phrase::Primary(Primitive::Variable(name)) => {
-                    match environment.assign(Variable::with(name), object.clone().unwrap_or(Evaluation::Void)) {
+                    match environment.borrow_mut().assign(Variable::with(name), object.clone().unwrap_or(Evaluation::Void)) {
                         Err(variable) => Err(EvaluationError::new(&format!("Undefined variable {}.", variable))),
                         Ok(_) => Ok(object.unwrap_or(Evaluation::Void)),
                     }
@@ -149,11 +159,11 @@ fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Op
     }
 }
 
-fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase, environment: &mut Environment) -> Result<Evaluation, EvaluationError> {
+fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     match conjunction {
         Conjunction::Greater | Conjunction::GreaterEqual | Conjunction::Less | Conjunction::LessEqual => {
-            let left_phrs = evaluate(left, environment);
-            let right_phrs = evaluate(right, environment);
+            let left_phrs = evaluate(left, environment.clone());
+            let right_phrs = evaluate(right, environment.clone());
 
             let error = if let Err(err) = left_phrs.clone() { Some(err) } else { None };
             let error = if let Err(err) = right_phrs.clone() { error.and_then(|e| Some(e.concat(err))) } else { error };
@@ -175,8 +185,8 @@ fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase
             }
         },
         Conjunction::Equal | Conjunction::NotEqual => {
-            let left_phrs = evaluate(left, environment);
-            let right_phrs = evaluate(right, environment);
+            let left_phrs = evaluate(left, environment.clone());
+            let right_phrs = evaluate(right, environment.clone());
 
             let error = if let Err(err) = left_phrs.clone() { Some(err) } else { None };
             let error = if let Err(err) = right_phrs.clone() { error.and_then(|e| Some(e.concat(err))) } else { error };
@@ -194,12 +204,12 @@ fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase
             }
         },
         Conjunction::And => {
-            let result = evaluate_truth(evaluate(left, environment)?, environment)?;
+            let result = evaluate_truth(evaluate(left, environment.clone())?, environment.clone())?;
             match result {
                 Evaluation::Boolean(value) => {
                     if !value { Ok(result) }
                     else {
-                        let result = evaluate_truth(evaluate(right, environment)?, environment)?;
+                        let result = evaluate_truth(evaluate(right, environment.clone())?, environment.clone())?;
                         match result {
                             Evaluation::Boolean(_) => Ok(result),
                             _ => Err(EvaluationError::new("Invalid logic operand")),
@@ -210,12 +220,12 @@ fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase
             }
         },
         Conjunction::Or => {
-            let result = evaluate_truth(evaluate(left, environment)?, environment)?;
+            let result = evaluate_truth(evaluate(left, environment.clone())?, environment.clone())?;
             match result {
                 Evaluation::Boolean(value) => {
                     if value { Ok(result) }
                     else {
-                        let result = evaluate_truth(evaluate(right, environment)?, environment)?;
+                        let result = evaluate_truth(evaluate(right, environment.clone())?, environment.clone())?;
                         match result {
                             Evaluation::Boolean(_) => Ok(result),
                             _ => Err(EvaluationError::new("Invalid logic operand")),
@@ -229,7 +239,7 @@ fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase
     }
 }
 
-fn evaluate_truth(value : Evaluation, environment: &Environment) -> Result<Evaluation, EvaluationError> {
+fn evaluate_truth(value : Evaluation, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     match value {
         Evaluation::Void => Err(EvaluationError::new("Invalid boolean condition for void")),
         Evaluation::Number(value) => Ok(Evaluation::Boolean(value != 0.0)),

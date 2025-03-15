@@ -1,19 +1,21 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::rc::Rc;
 
 use crate::compilation::datatype::Datatype;
 use crate::compilation::evaluation::Evaluation;
 
 #[derive(Default, Debug)]
 pub struct Environment {
-    pub outer: Option<Box<Environment>>,
+    pub outer: Option<Rc<RefCell<Environment>>>,
     values: HashMap<Variable, Evaluation>,
 }
 
 impl Environment {
-    pub fn within_scope(outer: Environment) -> Self {
+    pub fn within_scope<'outer>(outer: Rc<RefCell<Environment>>) -> Self {
         Self {
-            outer: Some(Box::new(outer)),
+            outer: Some(outer),
             ..Default::default()
         }
     }
@@ -27,16 +29,16 @@ impl Environment {
             self.values.insert(var, value);
             Ok(())
         } else if let Some(env) = self.outer.as_mut() {
-            env.assign(var, value)
+            env.borrow_mut().assign(var, value)
         } else {
             Err(var.name)
         }
     }
 
-    pub fn get(&self, name: &str) -> Option<&Evaluation> {
-        self.values.get(&Variable::with(name))
+    pub fn get(&self, name: &str) -> Option<Evaluation> {
+        self.values.get(&Variable::with(name)).cloned()
             .or_else(|| self.outer.as_ref()
-                .and_then(|env| env.get(name)))
+                .and_then(|env| env.borrow().get(name)))
     }
 
     pub fn contains_var(&self, name: &str) -> bool {
