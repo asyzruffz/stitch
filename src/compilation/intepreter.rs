@@ -83,7 +83,10 @@ fn evaluate_primitive(primitive: &Primitive, environment: Rc<RefCell<Environment
         Primitive::True => Ok(Evaluation::Boolean(true)),
         Primitive::False => Ok(Evaluation::Boolean(false)),
         Primitive::It => todo!(),
-        Primitive::Collective(phrases) => todo!(),
+        Primitive::Collective(phrases) => phrases.iter()
+            .map(|phrase| evaluate(phrase, environment.clone()))
+            .collect::<Result<Vec<_>, _>>()
+            .map(|evaluations| Evaluation::Collective(evaluations.into())),
         Primitive::Variable(name) => match environment.borrow().get(name) {
             Some(value) => Ok(value),
             None => Err(EvaluationError::new(&format!("Undefined variable \"{}\".", name))),

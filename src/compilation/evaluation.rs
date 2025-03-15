@@ -7,6 +7,7 @@ pub enum Evaluation {
     Number(f32),
     Text(Rc<str>),
     Boolean(bool),
+    Collective(Rc<[Evaluation]>),
     Custom(Rc<str>),
 }
 
@@ -17,6 +18,7 @@ impl fmt::Display for Evaluation {
             Evaluation::Number(value) => write!(f, "{}", value),
             Evaluation::Text(value) => write!(f, "{}", value),
             Evaluation::Boolean(value) => write!(f, "{}", value),
+            Evaluation::Collective(evaluations) => write!(f, "{}", evaluations.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")),
             Evaluation::Custom(typename) => write!(f, "{} {{..}}", typename),
         }
     }
