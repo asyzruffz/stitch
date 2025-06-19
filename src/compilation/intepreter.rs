@@ -22,6 +22,17 @@ impl Intepreter {
     pub fn new() -> Self {
         Default::default()
     }
+
+    pub fn execute(&mut self, statement : &Statement) -> Result<Evaluation, EvaluationError> {
+        match statement {
+            Statement::Noun { name, super_type, body } => todo!(),
+            Statement::Verb { name, hence_type, subject_type, object_declarations, body } => todo!(),
+            Statement::Adjective { name, subject_type, body } => todo!(),
+            Statement::So { name, datatype, initializer } => declare_so(name, datatype, initializer.as_ref(), self.environment.clone()),
+            Statement::Phrase(phrase) => evaluate(phrase, self.environment.clone()),
+            Statement::Hence(phrase) => todo!(),
+        }
+    }
     
     pub fn within_scope(outer: Rc<RefCell<Environment>>) -> Self {
         Self {
@@ -31,17 +42,6 @@ impl Intepreter {
 
     pub fn define(&mut self, var: Variable, value: Evaluation) {
         self.environment.borrow_mut().define(var, value);
-    }
-
-    pub fn execute(&mut self, statement : &Statement) -> Result<Evaluation, EvaluationError> {
-        match statement {
-            Statement::Noun { name, super_type, body } => todo!(),
-            Statement::Verb { name, hence_type, subject_type, object_types, body } => todo!(),
-            Statement::Adjective { name, subject_type, body } => todo!(),
-            Statement::So { name, datatype, initializer } => declare_so(name, datatype, initializer.as_ref(), self.environment.clone()),
-            Statement::Phrase(phrase) => evaluate(phrase, self.environment.clone()),
-            Statement::Hence(phrase) => todo!(),
-        }
     }
 }
 
