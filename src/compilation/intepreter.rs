@@ -9,7 +9,8 @@ use crate::compilation::evaluation::Evaluation;
 use crate::compilation::phrase::Phrase;
 use crate::compilation::prefix::Prefix;
 use crate::compilation::primitive::Primitive;
-use crate::compilation::statement::Statement;
+use crate::compilation::routine::Routine;
+use crate::compilation::statement::{Statement, Statements };
 use crate::compilation::verb::Verb;
 
 
@@ -26,7 +27,8 @@ impl Intepreter {
     pub fn execute(&mut self, statement : &Statement) -> Result<Evaluation, EvaluationError> {
         match statement {
             Statement::Noun { name, super_type, body } => todo!(),
-            Statement::Verb { name, hence_type, subject_type, object_declarations, body } => todo!(),
+            Statement::Verb { name, hence_type, subject_type, object_declarations, body } => 
+                declare_verb(&name, hence_type.as_ref(), subject_type.clone(), object_declarations.clone(), body, self.environment.clone()),
             Statement::Adjective { name, subject_type, body } => todo!(),
             Statement::So { name, datatype, initializer } => declare_so(name, datatype, initializer.as_ref(), self.environment.clone()),
             Statement::Phrase(phrase) => evaluate(phrase, self.environment.clone()),
@@ -43,6 +45,46 @@ impl Intepreter {
     pub fn define(&mut self, var: Variable, value: Evaluation) {
         self.environment.borrow_mut().define(var, value);
     }
+
+    pub fn define_subject(&mut self, subject: Option<Evaluation>) {
+        subject.map(|subject| match subject.datatype() {
+            Some(datatype) => self.define(Variable::new("it", &datatype), subject),
+            None => self.define(Variable::with("it"), subject),
+        });
+    }
+
+    pub fn define_object(&mut self, object: Evaluation, parameters: &[Statement], environment: Rc<RefCell<Environment>>) -> Result<(), EvaluationError> {
+        let arguments = match object {
+            Evaluation::Void => return Err(EvaluationError::new("Invalid object for definition.")),
+            Evaluation::Collective(objs) => parameters.iter().zip(objs.as_ref().into_iter().cloned().collect::<Vec<_>>()).collect::<Vec<_>>(),
+            Evaluation::Custom(typename) => todo!(),
+            obj => parameters.iter().zip(std::iter::once(obj)).collect::<Vec<_>>(),
+        };
+
+        arguments.into_iter()
+            .map(|(param, obj)| match param {
+                Statement::So { name, datatype, initializer } => {
+                    declare_so(name, datatype, initializer.as_ref(), environment.clone())?;
+                    let variable = Variable::new(name, datatype);
+                    match environment.borrow_mut().assign(variable, obj) {
+                        Err(variable) => Err(EvaluationError::new(&format!("Undefined variable {}.", variable))),
+                        Ok(_) => Ok(()),
+                    }
+                },
+                _ => Err(EvaluationError::new("Invalid param statement")),
+            })
+            .collect()
+    }
+}
+
+fn declare_verb(name: &str, hence_type: Option<&Datatype>, subject_type: Option<Datatype>, object_declarations: Rc<[Statement]>, body: &Statements, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
+    let variable = match hence_type {
+        Some(datatype) => Variable::new(name, datatype),
+        None => Variable::with(name),
+    };
+
+    environment.borrow_mut().define(variable, Evaluation::Action(Routine::new(name, subject_type, object_declarations, body)));
+    Ok(Evaluation::Void)
 }
 
 fn declare_so(name: &str, datatype: &Datatype, initializer : Option<&Phrase>, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
@@ -82,7 +124,10 @@ fn evaluate_primitive(primitive: &Primitive, environment: Rc<RefCell<Environment
         Primitive::Text(value) => Ok(Evaluation::Text(value.clone())),
         Primitive::True => Ok(Evaluation::Boolean(true)),
         Primitive::False => Ok(Evaluation::Boolean(false)),
-        Primitive::It => todo!(),
+        Primitive::It => match environment.borrow().get("it") {
+            Some(value) => Ok(value),
+            None => Err(EvaluationError::new("Undefined variable \"it\".")),
+        },
         Primitive::Collective(phrases) => phrases.iter()
             .map(|phrase| evaluate(phrase, environment.clone()))
             .collect::<Result<Vec<_>, _>>()
@@ -101,6 +146,8 @@ fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: Rc<RefCell<Envir
             Evaluation::Number(_) => Err(EvaluationError::new("Invalid not prefix for number")),
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid not prefix for text")),
             Evaluation::Boolean(value) => Ok(Evaluation::Boolean(!value)),
+            Evaluation::Collective(_) => Err(EvaluationError::new("Invalid not prefix for collective")),
+            Evaluation::Action(routine) => Err(EvaluationError::new(&format!("Invalid not prefix for {}", routine.name))),
             Evaluation::Custom(typename) => Err(EvaluationError::new(&format!("No implementation of not prefix for {}.", typename))),
         },
         Prefix::Negation => match evaluate(noun, environment.clone())? {
@@ -108,6 +155,8 @@ fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: Rc<RefCell<Envir
             Evaluation::Number(value) => Ok(Evaluation::Number(-value)),
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid negation prefix for text")),
             Evaluation::Boolean(_) => Err(EvaluationError::new("Invalid negation prefix for boolean")),
+            Evaluation::Collective(_) => Err(EvaluationError::new("Invalid negation prefix for collective")),
+            Evaluation::Action(routine) => Err(EvaluationError::new(&format!("Invalid negation prefix for {}.", routine.name))),
             Evaluation::Custom(typename) => Err(EvaluationError::new(&format!("No implementation of negation prefix for {}.", typename))),
         },
         Prefix::Adjective(adjective) => todo!(),
@@ -125,13 +174,13 @@ fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Op
         None => None,
     };
     let object = match object_phrs {
-        Some(object_phrs) => Some(evaluate(object_phrs, environment.clone())?),
-        None => None,
+        Some(object_phrs) => evaluate(object_phrs, environment.clone())?,
+        None => Evaluation::Void,
     };
 
     match verb {
-        Verb::Divide | Verb::Multiply | Verb::Subtract | Verb::Add => match (subject, object) {
-            (Some(subject_eval), Some(object_eval)) => match (subject_eval, object_eval) {
+        Verb::Divide | Verb::Multiply | Verb::Subtract | Verb::Add => match subject {
+            Some(subject_eval) => match (subject_eval, object) {
                 (Evaluation::Number(lvalue), Evaluation::Number(rvalue)) => {
                     match verb {
                         Verb::Divide => Ok(Evaluation::Number(lvalue / rvalue)),
@@ -148,16 +197,36 @@ fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Op
         Verb::Assign => match subject_phrs {
             Some(subject_phrs) => match subject_phrs {
                 Phrase::Primary(Primitive::Variable(name)) => {
-                    match environment.borrow_mut().assign(Variable::with(name), object.clone().unwrap_or(Evaluation::Void)) {
+                    match environment.borrow_mut().assign(Variable::with(name), object.clone()) {
                         Err(variable) => Err(EvaluationError::new(&format!("Undefined variable {}.", variable))),
-                        Ok(_) => Ok(object.unwrap_or(Evaluation::Void)),
+                        Ok(_) => Ok(object),
                     }
                 }
                 _ => Err(EvaluationError::new("Invalid assignment target")),
             },
             None => Err(EvaluationError::new("Invalid assigning to none")),
         },
-        Verb::Action(action) => todo!(),
+        Verb::Action(name) => if let Some(action) = environment.borrow().get(name.as_ref()) {
+            match action {
+                Evaluation::Action(routine) => {
+                    let mut intepreter = Intepreter::within_scope(environment.clone());
+                    
+                    routine.validate_subject(subject.as_ref())?;
+                    intepreter.define_subject(subject);
+
+                    routine.validate_object(&object, &mut intepreter)?;
+                    intepreter.define_object(object.clone(), routine.object_declarations.as_ref(), environment.clone());
+
+                    for statement in routine.instructions.0.as_ref() {
+                        intepreter.execute(statement)?;
+                    }
+                    Ok(Evaluation::Void)
+                },
+                _ => Err(EvaluationError::new(&format!("Invalid action {}.", name.as_ref()))),
+            }
+        } else {
+            Err(EvaluationError::new(&format!("Undefined verb {}.", name.as_ref())))
+        },
         Verb::None => Err(EvaluationError::new("None verb invalid")),
     }
 }
@@ -248,6 +317,15 @@ fn evaluate_truth(value : Evaluation, environment: Rc<RefCell<Environment>>) -> 
         Evaluation::Number(value) => Ok(Evaluation::Boolean(value != 0.0)),
         Evaluation::Text(_) => Ok(Evaluation::Boolean(true)),
         Evaluation::Boolean(value) => Ok(Evaluation::Boolean(value)),
+        Evaluation::Collective(evaluations) => Ok(Evaluation::Boolean(evaluations.iter()
+            .map(|evaluation| match evaluate_truth(evaluation.clone(), environment.clone()) {
+                Ok(Evaluation::Boolean(value)) => Ok(value),
+                Ok(_) => Err(EvaluationError::new("Invalid boolean condition for collective element")),
+                Err(error) => Err(error),
+            })
+            .collect::<Result<Vec<_>, _>>()?.into_iter()
+            .all(|value| value))),
+        Evaluation::Action(_) => Err(EvaluationError::new("Invalid boolean condition for action")),
         Evaluation::Custom(typename) => Err(EvaluationError::new(&format!("No implementation of truth for {}.", typename))),
     }
 }

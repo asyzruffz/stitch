@@ -6,6 +6,7 @@ pub mod errors;
 mod source;
 mod intermediate;
 mod datatype;
+mod routine;
 mod phrase;
 mod environment;
 mod evaluation;

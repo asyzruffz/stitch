@@ -1,6 +1,9 @@
 use std::fmt;
 use std::rc::Rc;
 
+use crate::compilation::datatype::Datatype;
+use crate::compilation::routine::Routine;
+
 #[derive(Default, PartialEq, Clone, Debug)]
 pub enum Evaluation {
     #[default] Void,
@@ -8,6 +11,7 @@ pub enum Evaluation {
     Text(Rc<str>),
     Boolean(bool),
     Collective(Rc<[Evaluation]>),
+    Action(Routine),
     Custom(Rc<str>),
 }
 
@@ -19,6 +23,7 @@ impl fmt::Display for Evaluation {
             Evaluation::Text(value) => write!(f, "{}", value),
             Evaluation::Boolean(value) => write!(f, "{}", value),
             Evaluation::Collective(evaluations) => write!(f, "{}", evaluations.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")),
+            Evaluation::Action(routine) => write!(f, "{}()", routine.name),
             Evaluation::Custom(typename) => write!(f, "{} {{..}}", typename),
         }
     }
@@ -39,6 +44,33 @@ impl Evaluation {
             (Evaluation::Text(lval), Evaluation::Text(rval)) => lval.as_ref() == rval.as_ref(),
             (Evaluation::Boolean(lval), Evaluation::Boolean(rval)) => lval == rval,
             (Evaluation::Custom(_), Evaluation::Custom(_)) => todo!(),
+            _ => false,
+        }
+    }
+
+    pub fn datatype(&self) -> Option<Datatype> {
+        match self {
+            Evaluation::Void => None,
+            Evaluation::Number(_) => Some(Datatype::Number),
+            Evaluation::Text(_) => Some(Datatype::Text),
+            Evaluation::Boolean(_) => Some(Datatype::Boolean),
+            Evaluation::Collective(_) => None,
+            Evaluation::Action(_) => None,
+            Evaluation::Custom(typename) => Some(Datatype::Custom(typename.clone())),
+        }
+    }
+
+    pub fn parity(&self, other: &Evaluation) -> bool {
+        match (self, other) {
+            (Evaluation::Void, Evaluation::Void) => true,
+            (Evaluation::Void, _) => false,
+            (_, Evaluation::Void) => false,
+            (Evaluation::Number(_), Evaluation::Number(_)) => true,
+            (Evaluation::Text(_), Evaluation::Text(_)) => true,
+            (Evaluation::Boolean(_), Evaluation::Boolean(_)) => true,
+            (Evaluation::Custom(typename1), Evaluation::Custom(typename2)) => typename1 == typename2,
+            (Evaluation::Collective(evaluations1), Evaluation::Collective(evaluations2)) => 
+                evaluations1.len() == evaluations2.len() && evaluations1.iter().zip(evaluations2.iter()).all(|(e1, e2)| e1.parity(e2)),
             _ => false,
         }
     }
