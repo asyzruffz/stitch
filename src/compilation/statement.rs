@@ -15,7 +15,7 @@ pub enum Statement {
         name: Rc<str>,
         hence_type: Option<Datatype>,
         subject_type: Option<Datatype>,
-        object_types: Rc<[Statement]>,
+        object_declarations: Rc<[Statement]>,
         body: Statements,
     },
     Adjective {
@@ -37,10 +37,10 @@ impl fmt::Display for Statement {
         match self {
             Statement::Noun { name, super_type: Some(supertype), body } => write!(f, "noun {name} is {supertype} \n{body}"),
             Statement::Noun { name, super_type, body } => write!(f, "noun {name} is {super_type:?} \n{body}"),
-            Statement::Verb { name, hence_type: Some(hencetype), subject_type: Some(subjecttype), object_types, body } => 
+            Statement::Verb { name, hence_type: Some(hencetype), subject_type: Some(subjecttype), object_declarations: object_types, body } => 
                 write!(f, "verb {name} is {hencetype} for {subjecttype} when {} \n{body}",
                     object_types.iter().map(|s| s.to_string()).collect::<Vec<_>>().join(", ")),
-            Statement::Verb { name, hence_type, subject_type, object_types, body } => 
+            Statement::Verb { name, hence_type, subject_type, object_declarations: object_types, body } => 
                 write!(f, "verb {name} is {hence_type:?} for {subject_type:?} when {} \n{body}",
                     object_types.iter().map(|s| s.to_string()).collect::<Vec<_>>().join(", ")),
             Statement::Adjective { name, subject_type, body } => write!(f, "adjective {name} for {subject_type} \n{body}"),
@@ -52,7 +52,7 @@ impl fmt::Display for Statement {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(Default, PartialEq, Eq, Clone, Debug)]
 pub struct Statements(pub Rc<[Statement]>);
 
 impl fmt::Display for Statements {

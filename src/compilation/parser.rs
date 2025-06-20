@@ -210,7 +210,7 @@ fn handle_verb_definition<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement,
         name: name_token.lexeme,
         hence_type,
         subject_type,
-        object_types: parameters.into(),
+        object_declarations: parameters.into(),
         body: Statements(sentences.into()),
     })
 }
