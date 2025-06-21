@@ -215,7 +215,7 @@ fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Op
                     intepreter.define_subject(subject);
 
                     routine.validate_object(&object, &mut intepreter)?;
-                    intepreter.define_object(object.clone(), routine.object_declarations.as_ref(), environment.clone());
+                    intepreter.define_object(object.clone(), routine.object_declarations.as_ref(), environment.clone())?;
 
                     for statement in routine.instructions.0.as_ref() {
                         intepreter.execute(statement)?;
