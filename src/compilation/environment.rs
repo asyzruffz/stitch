@@ -6,7 +6,7 @@ use std::rc::Rc;
 use crate::compilation::datatype::Datatype;
 use crate::compilation::evaluation::Evaluation;
 
-#[derive(Default, Debug)]
+#[derive(Default, PartialEq, Debug)]
 pub struct Environment {
     pub outer: Option<Rc<RefCell<Environment>>>,
     values: HashMap<Variable, Evaluation>,

@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use crate::compilation::datatype::Datatype;
 use crate::compilation::routine::Routine;
+use crate::compilation::substantive::Substantive;
 
 #[derive(Default, PartialEq, Clone, Debug)]
 pub enum Evaluation {
@@ -11,6 +12,7 @@ pub enum Evaluation {
     Text(Rc<str>),
     Boolean(bool),
     Collective(Rc<[Evaluation]>),
+    Noun(Substantive),
     Action(Routine),
     Custom(Rc<str>),
 }
@@ -23,6 +25,7 @@ impl fmt::Display for Evaluation {
             Evaluation::Text(value) => write!(f, "{}", value),
             Evaluation::Boolean(value) => write!(f, "{}", value),
             Evaluation::Collective(evaluations) => write!(f, "{}", evaluations.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")),
+            Evaluation::Noun(substantive) => write!(f, "{}", substantive.name),
             Evaluation::Action(routine) => write!(f, "{}()", routine.name),
             Evaluation::Custom(typename) => write!(f, "{} {{..}}", typename),
         }
@@ -55,6 +58,7 @@ impl Evaluation {
             Evaluation::Text(_) => Some(Datatype::Text),
             Evaluation::Boolean(_) => Some(Datatype::Boolean),
             Evaluation::Collective(_) => None,
+            Evaluation::Noun(_) => None,
             Evaluation::Action(_) => None,
             Evaluation::Custom(typename) => Some(Datatype::Custom(typename.clone())),
         }

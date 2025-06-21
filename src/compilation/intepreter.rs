@@ -11,6 +11,7 @@ use crate::compilation::prefix::Prefix;
 use crate::compilation::primitive::Primitive;
 use crate::compilation::routine::Routine;
 use crate::compilation::statement::{Statement, Statements };
+use crate::compilation::substantive::Substantive;
 use crate::compilation::verb::Verb;
 
 
@@ -26,7 +27,7 @@ impl Intepreter {
 
     pub fn execute(&mut self, statement : &Statement) -> Result<Evaluation, EvaluationError> {
         match statement {
-            Statement::Noun { name, super_type, body } => todo!(),
+            Statement::Noun { name, super_type, body } => declare_noun(&name, super_type.as_ref(), body, self.environment.clone()),
             Statement::Verb { name, hence_type, subject_type, object_declarations, body } => 
                 declare_verb(&name, hence_type.as_ref(), subject_type.clone(), object_declarations.clone(), body, self.environment.clone()),
             Statement::Adjective { name, subject_type, body } => todo!(),
@@ -38,7 +39,7 @@ impl Intepreter {
     
     pub fn within_scope(outer: Rc<RefCell<Environment>>) -> Self {
         Self {
-            environment: outer.clone()
+            environment: Rc::new(RefCell::new(Environment::within_scope(outer))),
         }
     }
 
@@ -75,6 +76,34 @@ impl Intepreter {
             })
             .collect()
     }
+}
+
+fn declare_noun(name: &str, super_type: Option<&Datatype>, body: &Statements, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
+    let noun_environment = Rc::new(RefCell::new(Environment::within_scope(environment.clone())));
+    
+    if let Some(super_type) = super_type {
+        match super_type {
+            Datatype::Custom(super_type_name) => noun_environment.borrow_mut().define(Variable::new("super", super_type), Evaluation::Custom(super_type_name.clone())),
+            Datatype::Number => noun_environment.borrow_mut().define(Variable::new("super", super_type), Evaluation::Number(0.0)),
+            Datatype::Text => noun_environment.borrow_mut().define(Variable::new("super", super_type), Evaluation::Text("".into())),
+            Datatype::Boolean => noun_environment.borrow_mut().define(Variable::new("super", super_type), Evaluation::Boolean(false)),
+        }
+    }
+
+    for statement in body.0.as_ref() {
+        match statement {
+            Statement::Noun { name, super_type, body } => declare_noun(&name, super_type.as_ref(), body, noun_environment.clone())?,
+            Statement::Verb { name, hence_type, subject_type, object_declarations, body } => 
+                declare_verb(&name, hence_type.as_ref(), subject_type.clone(), object_declarations.clone(), body, noun_environment.clone())?,
+            Statement::Adjective { name, subject_type, body } => todo!(),
+            Statement::So { name, datatype, initializer } => declare_so(name, datatype, initializer.as_ref(), noun_environment.clone())?,
+            _ => return Err(EvaluationError::new("Invalid statement in noun body.")),
+        };
+    }
+
+    let variable = Variable::new(name, &Datatype::Custom(name.into()));
+    environment.borrow_mut().define(variable, Evaluation::Noun(Substantive::new(name, noun_environment)));
+    Ok(Evaluation::Void)
 }
 
 fn declare_verb(name: &str, hence_type: Option<&Datatype>, subject_type: Option<Datatype>, object_declarations: Rc<[Statement]>, body: &Statements, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
@@ -147,6 +176,7 @@ fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: Rc<RefCell<Envir
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid not prefix for text")),
             Evaluation::Boolean(value) => Ok(Evaluation::Boolean(!value)),
             Evaluation::Collective(_) => Err(EvaluationError::new("Invalid not prefix for collective")),
+            Evaluation::Noun(substantive) => todo!(),
             Evaluation::Action(routine) => Err(EvaluationError::new(&format!("Invalid not prefix for {}", routine.name))),
             Evaluation::Custom(typename) => Err(EvaluationError::new(&format!("No implementation of not prefix for {}.", typename))),
         },
@@ -156,6 +186,7 @@ fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: Rc<RefCell<Envir
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid negation prefix for text")),
             Evaluation::Boolean(_) => Err(EvaluationError::new("Invalid negation prefix for boolean")),
             Evaluation::Collective(_) => Err(EvaluationError::new("Invalid negation prefix for collective")),
+            Evaluation::Noun(substantive) => Err(EvaluationError::new(&format!("Invalid negation prefix for {}.", substantive.name))),
             Evaluation::Action(routine) => Err(EvaluationError::new(&format!("Invalid negation prefix for {}.", routine.name))),
             Evaluation::Custom(typename) => Err(EvaluationError::new(&format!("No implementation of negation prefix for {}.", typename))),
         },
@@ -325,6 +356,7 @@ fn evaluate_truth(value : Evaluation, environment: Rc<RefCell<Environment>>) -> 
             })
             .collect::<Result<Vec<_>, _>>()?.into_iter()
             .all(|value| value))),
+        Evaluation::Noun(_) => Err(EvaluationError::new("Invalid boolean condition for noun")),
         Evaluation::Action(_) => Err(EvaluationError::new("Invalid boolean condition for action")),
         Evaluation::Custom(typename) => Err(EvaluationError::new(&format!("No implementation of truth for {}.", typename))),
     }

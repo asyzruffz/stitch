@@ -7,6 +7,7 @@ mod source;
 mod intermediate;
 mod datatype;
 mod routine;
+mod substantive;
 mod phrase;
 mod environment;
 mod evaluation;
