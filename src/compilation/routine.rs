@@ -24,10 +24,10 @@ impl Routine {
         }
     }
 
-    pub fn validate_subject(&self, subject: Option<&Evaluation>) -> Result<(), EvaluationError> {
+    pub fn validate_subject(&self, subject: &Evaluation) -> Result<(), EvaluationError> {
         match (subject, self.subject_type.clone()) {
-            (None, None) => Ok(()),
-            (Some(subject), datatype) => {
+            (Evaluation::Void, None) => Ok(()),
+            (subject, datatype) => {
                 if subject.datatype() == datatype {
                     Ok(())
                 } else {

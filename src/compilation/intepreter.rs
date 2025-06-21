@@ -27,9 +27,9 @@ impl Intepreter {
 
     pub fn execute(&mut self, statement : &Statement) -> Result<Evaluation, EvaluationError> {
         match statement {
-            Statement::Noun { name, super_type, body } => declare_noun(&name, super_type.as_ref(), body, self.environment.clone()),
+            Statement::Noun { name, super_type, body } => declare_noun(name, super_type.as_ref(), body, self.environment.clone()),
             Statement::Verb { name, hence_type, subject_type, object_declarations, body } => 
-                declare_verb(&name, hence_type.as_ref(), subject_type.clone(), object_declarations.clone(), body, self.environment.clone()),
+                declare_verb(name, hence_type.as_ref(), subject_type.clone(), object_declarations.clone(), body, self.environment.clone()),
             Statement::Adjective { name, subject_type, body } => todo!(),
             Statement::So { name, datatype, initializer } => declare_so(name, datatype, initializer.as_ref(), self.environment.clone()),
             Statement::Phrase(phrase) => evaluate(phrase, self.environment.clone()),
@@ -47,11 +47,15 @@ impl Intepreter {
         self.environment.borrow_mut().define(var, value);
     }
 
-    pub fn define_subject(&mut self, subject: Option<Evaluation>) {
-        subject.map(|subject| match subject.datatype() {
+    pub fn define_subject(&mut self, subject: Evaluation) {
+        if subject == Evaluation::Void {
+            return;
+        }
+        
+        match subject.datatype() {
             Some(datatype) => self.define(Variable::new("it", &datatype), subject),
             None => self.define(Variable::with("it"), subject),
-        });
+        };
     }
 
     pub fn define_object(&mut self, object: Evaluation, parameters: &[Statement], environment: Rc<RefCell<Environment>>) -> Result<(), EvaluationError> {
@@ -92,9 +96,9 @@ fn declare_noun(name: &str, super_type: Option<&Datatype>, body: &Statements, en
 
     for statement in body.0.as_ref() {
         match statement {
-            Statement::Noun { name, super_type, body } => declare_noun(&name, super_type.as_ref(), body, noun_environment.clone())?,
+            Statement::Noun { name, super_type, body } => declare_noun(name, super_type.as_ref(), body, noun_environment.clone())?,
             Statement::Verb { name, hence_type, subject_type, object_declarations, body } => 
-                declare_verb(&name, hence_type.as_ref(), subject_type.clone(), object_declarations.clone(), body, noun_environment.clone())?,
+                declare_verb(name, hence_type.as_ref(), subject_type.clone(), object_declarations.clone(), body, noun_environment.clone())?,
             Statement::Adjective { name, subject_type, body } => todo!(),
             Statement::So { name, datatype, initializer } => declare_so(name, datatype, initializer.as_ref(), noun_environment.clone())?,
             _ => return Err(EvaluationError::new("Invalid statement in noun body.")),
@@ -197,12 +201,8 @@ fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: Rc<RefCell<Envir
 
 fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Option<&Phrase>, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     let subject = match subject_phrs {
-        Some(subject_phrs @ Phrase::Primary(Primitive::Variable(_))) => match verb {
-            Verb::Assign => None,
-            _ => Some(evaluate(subject_phrs, environment.clone())?),
-        },
-        Some(subject_phrs) => Some(evaluate(subject_phrs, environment.clone())?),
-        None => None,
+        Some(subject_phrs) => evaluate(subject_phrs, environment.clone())?,
+        None => Evaluation::Void,
     };
     let object = match object_phrs {
         Some(object_phrs) => evaluate(object_phrs, environment.clone())?,
@@ -210,8 +210,7 @@ fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Op
     };
 
     match verb {
-        Verb::Divide | Verb::Multiply | Verb::Subtract | Verb::Add => match subject {
-            Some(subject_eval) => match (subject_eval, object) {
+        Verb::Divide | Verb::Multiply | Verb::Subtract | Verb::Add => match (subject, object) {
                 (Evaluation::Number(lvalue), Evaluation::Number(rvalue)) => {
                     match verb {
                         Verb::Divide => Ok(Evaluation::Number(lvalue / rvalue)),
@@ -222,8 +221,6 @@ fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Op
                     }
                 }
                 _ => Err(EvaluationError::new("Invalid operand not as numbers")),
-            },
-            _ => Err(EvaluationError::new("Invalid operand as none")),
         },
         Verb::Assign => match subject_phrs {
             Some(subject_phrs) => match subject_phrs {
@@ -242,8 +239,8 @@ fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Op
                 Evaluation::Action(routine) => {
                     let mut intepreter = Intepreter::within_scope(environment.clone());
                     
-                    routine.validate_subject(subject.as_ref())?;
-                    intepreter.define_subject(subject);
+                        routine.validate_subject(&subject)?;
+                        intepreter.define_subject(subject.clone());
 
                     routine.validate_object(&object, &mut intepreter)?;
                     intepreter.define_object(object.clone(), routine.object_declarations.as_ref(), environment.clone())?;
