@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::ops::Deref;
 use std::rc::Rc;
 
 use crate::compilation::conjunction::Conjunction;
@@ -188,16 +189,18 @@ fn evaluate_prefix(prefix: &Prefix, subject_phrs: &Phrase, environment: Rc<RefCe
     match prefix {
         Prefix::Not => match evaluate(subject_phrs, environment.clone())? {
             Evaluation::Void => Err(EvaluationError::new("Invalid not prefix for void")),
+            Evaluation::Skip(noun) => Ok(noun.deref().to_owned()),
             Evaluation::Number(_) => Err(EvaluationError::new("Invalid not prefix for number")),
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid not prefix for text")),
             Evaluation::Boolean(value) => Ok(Evaluation::Boolean(!value)),
             Evaluation::Collective(_) => Err(EvaluationError::new("Invalid not prefix for collective")),
-            Evaluation::Noun(substantive) => todo!(),
+            noun @ Evaluation::Noun(_) => Ok(Evaluation::Skip(Box::new(noun))),
             Evaluation::Action(routine) => Err(EvaluationError::new(&format!("Invalid not prefix for action {}", routine.name))),
             Evaluation::Adjective(routine) => Err(EvaluationError::new(&format!("No implementation of not prefix for adjective {}", routine.name))),
         },
         Prefix::Negation => match evaluate(subject_phrs, environment.clone())? {
             Evaluation::Void => Err(EvaluationError::new("Invalid negation prefix for void")),
+            Evaluation::Skip(_) => Err(EvaluationError::new("Invalid negation prefix for skip")),
             Evaluation::Number(value) => Ok(Evaluation::Number(-value)),
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid negation prefix for text")),
             Evaluation::Boolean(_) => Err(EvaluationError::new("Invalid negation prefix for boolean")),
@@ -229,49 +232,54 @@ fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Op
 
     match verb {
         Verb::Divide | Verb::Multiply | Verb::Subtract | Verb::Add => match (subject, object) {
-                (Evaluation::Number(lvalue), Evaluation::Number(rvalue)) => {
-                    match verb {
-                        Verb::Divide => Ok(Evaluation::Number(lvalue / rvalue)),
-                        Verb::Multiply => Ok(Evaluation::Number(lvalue * rvalue)),
-                        Verb::Subtract => Ok(Evaluation::Number(lvalue - rvalue)),
-                        Verb::Add => Ok(Evaluation::Number(lvalue + rvalue)),
-                        _ => unreachable!(),
-                    }
+            (Evaluation::Number(lvalue), Evaluation::Number(rvalue)) => {
+                match verb {
+                    Verb::Divide => Ok(Evaluation::Number(lvalue / rvalue)),
+                    Verb::Multiply => Ok(Evaluation::Number(lvalue * rvalue)),
+                    Verb::Subtract => Ok(Evaluation::Number(lvalue - rvalue)),
+                    Verb::Add => Ok(Evaluation::Number(lvalue + rvalue)),
+                    _ => unreachable!(),
                 }
-                _ => Err(EvaluationError::new("Invalid operand not as numbers")),
-        },
-        Verb::Assign => match subject_phrs {
-            Some(subject_phrs) => match subject_phrs {
-                Phrase::Primary(Primitive::Variable(name)) => {
-                    match environment.borrow_mut().assign(Variable::with(name), object.clone()) {
-                        Err(variable) => Err(EvaluationError::new(&format!("Undefined variable {}.", variable))),
-                        Ok(_) => Ok(object),
-                    }
-                }
-                _ => Err(EvaluationError::new("Invalid assignment target")),
-            },
-            None => Err(EvaluationError::new("Invalid assigning to none")),
-        },
-        Verb::Action(name) => if let Some(action) = environment.borrow().get(name.as_ref()) {
-            match action {
-                Evaluation::Action(routine) => {
-                    let mut intepreter = Intepreter::within_scope(environment.clone());
-                    
-                        routine.validate_subject(&subject)?;
-                        intepreter.define_subject(subject.clone());
-
-                    routine.validate_object(&object, &mut intepreter)?;
-                    intepreter.define_object(object.clone(), routine.object_declarations.as_ref(), environment.clone())?;
-
-                    for statement in routine.instructions.0.as_ref() {
-                        intepreter.execute(statement)?;
-                    }
-                    Ok(Evaluation::Void)
-                },
-                _ => Err(EvaluationError::new(&format!("Invalid action {}.", name.as_ref()))),
             }
-        } else {
-            Err(EvaluationError::new(&format!("Undefined verb {}.", name.as_ref())))
+            _ => Err(EvaluationError::new("Invalid operand not as numbers")),
+        },
+        Verb::Assign => {
+            if let skipped_subject @ Evaluation::Skip(_) = subject {
+                return Ok(skipped_subject);
+            }
+            if let Evaluation::Skip(_) = object {
+                return Ok(subject);
+            }
+
+            match subject_phrs {
+                Some(subject_phrs) => match subject_phrs {
+                    Phrase::Primary(Primitive::Variable(name)) => {
+                        match environment.borrow_mut().assign(Variable::with(name), object.clone()) {
+                            Err(variable) => Err(EvaluationError::new(&format!("Undefined variable {}.", variable))),
+                            Ok(_) => Ok(object),
+                        }
+                    }
+                    _ => Err(EvaluationError::new("Invalid assignment target")),
+                },
+                None => Err(EvaluationError::new("Invalid assigning to none")),
+            }
+        },
+        Verb::Action(name) => {
+            if let skipped_subject @ Evaluation::Skip(_) = subject {
+                return Ok(skipped_subject);
+            }
+            if let Evaluation::Skip(_) = object {
+                return Ok(subject);
+            }
+
+            if let Some(action) = environment.borrow().get(name.as_ref()) {
+                match action {
+                    Evaluation::Action(routine) => evaluate_routine(subject, object, &routine, environment.clone()),
+                    _ => Err(EvaluationError::new(&format!("Invalid action {}.", name.as_ref()))),
+                }
+            } else {
+                Err(EvaluationError::new(&format!("Undefined verb {}.", name.as_ref())))
+            }
         },
         Verb::None => Err(EvaluationError::new("None verb invalid")),
     }
@@ -362,9 +370,12 @@ fn evaluate_qualifier(subject: Evaluation, adjective: Evaluation, environment: R
         Evaluation::Boolean(value) => if value {
             Ok(subject)
         } else {
-            Ok(Evaluation::Void)
+            Ok(Evaluation::Skip(Box::new(subject)))
         },
-        Evaluation::Adjective(routine) => todo!(),
+        Evaluation::Adjective(routine) => {
+            evaluate_routine(subject, Evaluation::Void, &routine, environment.clone())
+        },
+        Evaluation::Skip(_) => Ok(Evaluation::Skip(Box::new(subject))),
         Evaluation::Void => Err(EvaluationError::new("Invalid void as adjective")),
         Evaluation::Number(_) => Err(EvaluationError::new("Invalid number as adjective")),
         Evaluation::Text(_) => Err(EvaluationError::new("Invalid text as adjective")),
@@ -374,9 +385,28 @@ fn evaluate_qualifier(subject: Evaluation, adjective: Evaluation, environment: R
     }
 }
 
+fn evaluate_routine(subject: Evaluation, object: Evaluation, routine: &Routine, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
+    let mut intepreter = Intepreter::within_scope(environment.clone());
+    
+    routine.validate_subject(&subject)?;
+    intepreter.define_subject(subject.clone());
+
+    routine.validate_object(&object, &mut intepreter)?;
+    match object {
+        Evaluation::Void | Evaluation::Skip(_) => {},
+        obj => intepreter.define_object(obj, routine.object_declarations.as_ref(), environment.clone())?,
+    };
+
+    for statement in routine.instructions.0.as_ref() {
+        intepreter.execute(statement)?;
+    }
+    Ok(Evaluation::Void)
+}
+
 fn evaluate_truth(value : Evaluation, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     match value {
         Evaluation::Void => Err(EvaluationError::new("Invalid boolean condition for void")),
+        Evaluation::Skip(_) => Err(EvaluationError::new("Invalid boolean condition for skip?")),
         Evaluation::Number(value) => Ok(Evaluation::Boolean(value != 0.0)),
         Evaluation::Text(_) => Ok(Evaluation::Boolean(true)),
         Evaluation::Boolean(value) => Ok(Evaluation::Boolean(value)),
@@ -388,7 +418,7 @@ fn evaluate_truth(value : Evaluation, environment: Rc<RefCell<Environment>>) -> 
             })
             .collect::<Result<Vec<_>, _>>()?.into_iter()
             .all(|value| value))),
-        Evaluation::Noun(_) => Err(EvaluationError::new("Invalid boolean condition for noun")),
+        Evaluation::Noun(substantive) => Err(EvaluationError::new(&format!("No implementation of truth for noun {}", substantive.name))),
         Evaluation::Action(_) => Err(EvaluationError::new("Invalid boolean condition for action")),
         Evaluation::Adjective(routine) => Err(EvaluationError::new(&format!("No implementation of truth for adjective {}", routine.name))),
     }

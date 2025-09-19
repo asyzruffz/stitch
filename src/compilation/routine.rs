@@ -42,7 +42,12 @@ impl Routine {
             .map(|param_statement| intepreter.execute(param_statement))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let parameters = Evaluation::Collective(parameters.into());
+        let parameters = if parameters.is_empty() {
+            Evaluation::Void
+        } else {
+            Evaluation::Collective(parameters.into())
+        };
+        
         if !parameters.parity(&object) {
             Err(EvaluationError::new("Invalid objects for action"))
         } else {

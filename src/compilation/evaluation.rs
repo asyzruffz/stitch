@@ -8,6 +8,7 @@ use crate::compilation::substantive::Substantive;
 #[derive(Default, PartialEq, Clone, Debug)]
 pub enum Evaluation {
     #[default] Void,
+    Skip(Box<Evaluation>),
     Number(f32),
     Text(Rc<str>),
     Boolean(bool),
@@ -21,6 +22,7 @@ impl fmt::Display for Evaluation {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Evaluation::Void => write!(f, "void"),
+            Evaluation::Skip(eval) => write!(f, "skip ({})", eval.as_ref()),
             Evaluation::Number(value) => write!(f, "{}", value),
             Evaluation::Text(value) => write!(f, "{}", value),
             Evaluation::Boolean(value) => write!(f, "{}", value),
@@ -54,6 +56,7 @@ impl Evaluation {
     pub fn datatype(&self) -> Option<Datatype> {
         match self {
             Evaluation::Void => None,
+            Evaluation::Skip(_) => None,
             Evaluation::Number(_) => Some(Datatype::Number),
             Evaluation::Text(_) => Some(Datatype::Text),
             Evaluation::Boolean(_) => Some(Datatype::Boolean),
