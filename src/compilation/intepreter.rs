@@ -62,7 +62,6 @@ impl Intepreter {
         let arguments = match object {
             Evaluation::Void => return Err(EvaluationError::new("Invalid object for definition.")),
             Evaluation::Collective(objs) => parameters.iter().zip(objs.as_ref().into_iter().cloned().collect::<Vec<_>>()).collect::<Vec<_>>(),
-            Evaluation::Custom(typename) => todo!(),
             obj => parameters.iter().zip(std::iter::once(obj)).collect::<Vec<_>>(),
         };
 
@@ -182,7 +181,6 @@ fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: Rc<RefCell<Envir
             Evaluation::Collective(_) => Err(EvaluationError::new("Invalid not prefix for collective")),
             Evaluation::Noun(substantive) => todo!(),
             Evaluation::Action(routine) => Err(EvaluationError::new(&format!("Invalid not prefix for {}", routine.name))),
-            Evaluation::Custom(typename) => Err(EvaluationError::new(&format!("No implementation of not prefix for {}.", typename))),
         },
         Prefix::Negation => match evaluate(noun, environment.clone())? {
             Evaluation::Void => Err(EvaluationError::new("Invalid negation prefix for void")),
@@ -192,7 +190,6 @@ fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: Rc<RefCell<Envir
             Evaluation::Collective(_) => Err(EvaluationError::new("Invalid negation prefix for collective")),
             Evaluation::Noun(substantive) => Err(EvaluationError::new(&format!("Invalid negation prefix for {}.", substantive.name))),
             Evaluation::Action(routine) => Err(EvaluationError::new(&format!("Invalid negation prefix for {}.", routine.name))),
-            Evaluation::Custom(typename) => Err(EvaluationError::new(&format!("No implementation of negation prefix for {}.", typename))),
         },
         Prefix::Adjective(adjective) => todo!(),
         Prefix::None => Err(EvaluationError::new("None prefix invalid")),
@@ -355,6 +352,5 @@ fn evaluate_truth(value : Evaluation, environment: Rc<RefCell<Environment>>) -> 
             .all(|value| value))),
         Evaluation::Noun(_) => Err(EvaluationError::new("Invalid boolean condition for noun")),
         Evaluation::Action(_) => Err(EvaluationError::new("Invalid boolean condition for action")),
-        Evaluation::Custom(typename) => Err(EvaluationError::new(&format!("No implementation of truth for {}.", typename))),
     }
 }
