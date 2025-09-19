@@ -150,7 +150,7 @@ fn evaluate(phrase : &Phrase, environment: Rc<RefCell<Environment>>) -> Result<E
     match phrase {
         Phrase::None => Err(EvaluationError::new("None phrase")),
         Phrase::Primary(primitive) => evaluate_primitive(primitive, environment.clone()),
-        Phrase::Postfix { noun, adjective } => todo!(),
+        Phrase::Postfix { noun, adjective } => evaluate_postfix(noun, adjective, environment.clone()),
         Phrase::Prefix { prefix, noun } => evaluate_prefix(prefix, noun, environment.clone()),
         Phrase::Action { subject, verb, object } => evaluate_action(verb, subject.as_deref(), object.as_deref(), environment.clone()),
         Phrase::Condition { left, conjunction, right } => evaluate_condition(conjunction, left, right, environment),
@@ -178,9 +178,15 @@ fn evaluate_primitive(primitive: &Primitive, environment: Rc<RefCell<Environment
     }
 }
 
-fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
+fn evaluate_postfix(subject_phrs: &Phrase, adjective: &Phrase, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
+    let subject = evaluate(subject_phrs, environment.clone())?;
+    let adjective = evaluate(adjective, environment.clone())?;
+    evaluate_qualifier(subject, adjective, environment.clone())
+}
+
+fn evaluate_prefix(prefix: &Prefix, subject_phrs: &Phrase, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     match prefix {
-        Prefix::Not => match evaluate(noun, environment.clone())? {
+        Prefix::Not => match evaluate(subject_phrs, environment.clone())? {
             Evaluation::Void => Err(EvaluationError::new("Invalid not prefix for void")),
             Evaluation::Number(_) => Err(EvaluationError::new("Invalid not prefix for number")),
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid not prefix for text")),
@@ -190,7 +196,7 @@ fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: Rc<RefCell<Envir
             Evaluation::Action(routine) => Err(EvaluationError::new(&format!("Invalid not prefix for action {}", routine.name))),
             Evaluation::Adjective(routine) => Err(EvaluationError::new(&format!("No implementation of not prefix for adjective {}", routine.name))),
         },
-        Prefix::Negation => match evaluate(noun, environment.clone())? {
+        Prefix::Negation => match evaluate(subject_phrs, environment.clone())? {
             Evaluation::Void => Err(EvaluationError::new("Invalid negation prefix for void")),
             Evaluation::Number(value) => Ok(Evaluation::Number(-value)),
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid negation prefix for text")),
@@ -200,7 +206,13 @@ fn evaluate_prefix(prefix: &Prefix, noun: &Phrase, environment: Rc<RefCell<Envir
             Evaluation::Action(routine) => Err(EvaluationError::new(&format!("Invalid negation prefix for action {}.", routine.name))),
             Evaluation::Adjective(routine) => Err(EvaluationError::new(&format!("Invalid negation prefix for adjective {}.", routine.name))),
         },
-        Prefix::Adjective(adjective) => todo!(),
+        Prefix::Adjective(name) => match environment.borrow().get(name) {
+            Some(adjective) => {
+                let subject = evaluate(subject_phrs, environment.clone())?;
+                evaluate_qualifier(subject, adjective, environment.clone())
+            },
+            None => Err(EvaluationError::new(&format!("Undefined adjective {}.", name))),
+        },
         Prefix::None => Err(EvaluationError::new("None prefix invalid")),
     }
 }
@@ -342,6 +354,23 @@ fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase
             }
         },
         Conjunction::None => Err(EvaluationError::new("None conjunction invalid")),
+    }
+}
+
+fn evaluate_qualifier(subject: Evaluation, adjective: Evaluation, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
+    match adjective {
+        Evaluation::Boolean(value) => if value {
+            Ok(subject)
+        } else {
+            Ok(Evaluation::Skip(Box::new(subject)))
+        },
+        Evaluation::Adjective(routine) => todo!(),
+        Evaluation::Void => Err(EvaluationError::new("Invalid void as adjective")),
+        Evaluation::Number(_) => Err(EvaluationError::new("Invalid number as adjective")),
+        Evaluation::Text(_) => Err(EvaluationError::new("Invalid text as adjective")),
+        Evaluation::Collective(_) => Err(EvaluationError::new("Invalid collective as adjective")),
+        Evaluation::Noun(substantive) => Err(EvaluationError::new(&format!("Invalid noun {} as adjective", substantive.name))),
+        Evaluation::Action(routine) => Err(EvaluationError::new(&format!("Invalid action {} as adjective", routine.name))),
     }
 }
 
