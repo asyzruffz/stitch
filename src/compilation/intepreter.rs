@@ -362,7 +362,7 @@ fn evaluate_qualifier(subject: Evaluation, adjective: Evaluation, environment: R
         Evaluation::Boolean(value) => if value {
             Ok(subject)
         } else {
-            Ok(Evaluation::Skip(Box::new(subject)))
+            Ok(Evaluation::Void)
         },
         Evaluation::Adjective(routine) => todo!(),
         Evaluation::Void => Err(EvaluationError::new("Invalid void as adjective")),

@@ -34,7 +34,6 @@ impl Routine {
                     Err(EvaluationError::new("Invalid subject type"))
                 }
             },
-            _ => Err(EvaluationError::new("Invalid subject type")),
         }
     }
 
