@@ -34,7 +34,7 @@ impl Intepreter {
             Statement::Adjective { name, subject_type, body } => declare_adjective(name, subject_type, body, self.environment.clone()),
             Statement::So { name, datatype, initializer } => declare_so(name, datatype, initializer.as_ref(), self.environment.clone()),
             Statement::Phrase(phrase) => evaluate(phrase, self.environment.clone()),
-            Statement::Hence(phrase) => todo!(),
+            Statement::Hence(phrase) => evaluate_hence(phrase, self.environment.clone()),
         }
     }
     
@@ -158,6 +158,25 @@ fn evaluate(phrase : &Phrase, environment: Rc<RefCell<Environment>>) -> Result<E
     }
 }
 
+fn evaluate_hence(phrase : &Phrase, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
+    let hence_value = evaluate(phrase, environment.clone())?;
+    match hence_value {
+        Evaluation::Void => Err(EvaluationError::new("Invalid void as hence value")),
+        skip @ Evaluation::Skip(_) => Ok(Evaluation::Conclusion(Box::new(skip))),
+        value => {
+            if let Evaluation::Boolean(condition) = evaluate_truth(value.clone(), environment.clone())? {
+                if condition {
+                    Ok(Evaluation::Conclusion(Box::new(value)))
+                } else {
+                    Ok(Evaluation::Conclusion(Box::new(Evaluation::Skip(Box::new(value)))))
+                }
+            } else {
+                Ok(Evaluation::Conclusion(Box::new(value)))
+            }
+        },
+    }
+}
+
 fn evaluate_primitive(primitive: &Primitive, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     match primitive {
         Primitive::Number(value) => Ok(Evaluation::Number(value.parse::<f32>().unwrap_or_default())),
@@ -190,6 +209,7 @@ fn evaluate_prefix(prefix: &Prefix, subject_phrs: &Phrase, environment: Rc<RefCe
         Prefix::Not => match evaluate(subject_phrs, environment.clone())? {
             Evaluation::Void => Err(EvaluationError::new("Invalid not prefix for void")),
             Evaluation::Skip(noun) => Ok(noun.deref().to_owned()),
+            Evaluation::Conclusion(_) => Err(EvaluationError::new("Invalid not prefix for conclusion")),
             Evaluation::Number(_) => Err(EvaluationError::new("Invalid not prefix for number")),
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid not prefix for text")),
             Evaluation::Boolean(value) => Ok(Evaluation::Boolean(!value)),
@@ -201,6 +221,7 @@ fn evaluate_prefix(prefix: &Prefix, subject_phrs: &Phrase, environment: Rc<RefCe
         Prefix::Negation => match evaluate(subject_phrs, environment.clone())? {
             Evaluation::Void => Err(EvaluationError::new("Invalid negation prefix for void")),
             Evaluation::Skip(_) => Err(EvaluationError::new("Invalid negation prefix for skip")),
+            Evaluation::Conclusion(_) => Err(EvaluationError::new("Invalid negation prefix for conclusion")),
             Evaluation::Number(value) => Ok(Evaluation::Number(-value)),
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid negation prefix for text")),
             Evaluation::Boolean(_) => Err(EvaluationError::new("Invalid negation prefix for boolean")),
@@ -377,6 +398,7 @@ fn evaluate_qualifier(subject: Evaluation, adjective: Evaluation, environment: R
         },
         Evaluation::Skip(_) => Ok(Evaluation::Skip(Box::new(subject))),
         Evaluation::Void => Err(EvaluationError::new("Invalid void as adjective")),
+        Evaluation::Conclusion(_) => Err(EvaluationError::new("Invalid conclusion as adjective")),
         Evaluation::Number(_) => Err(EvaluationError::new("Invalid number as adjective")),
         Evaluation::Text(_) => Err(EvaluationError::new("Invalid text as adjective")),
         Evaluation::Collective(_) => Err(EvaluationError::new("Invalid collective as adjective")),
@@ -398,7 +420,10 @@ fn evaluate_routine(subject: Evaluation, object: Evaluation, routine: &Routine, 
     };
 
     for statement in routine.instructions.0.as_ref() {
-        intepreter.execute(statement)?;
+        let eval = intepreter.execute(statement)?;
+        if let Evaluation::Conclusion(val) = eval {
+            return Ok(*val);
+        }
     }
     Ok(Evaluation::Void)
 }
@@ -406,7 +431,8 @@ fn evaluate_routine(subject: Evaluation, object: Evaluation, routine: &Routine, 
 fn evaluate_truth(value : Evaluation, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     match value {
         Evaluation::Void => Err(EvaluationError::new("Invalid boolean condition for void")),
-        Evaluation::Skip(_) => Err(EvaluationError::new("Invalid boolean condition for skip?")),
+        Evaluation::Skip(_) => Err(EvaluationError::new("Invalid boolean condition for skip")),
+        Evaluation::Conclusion(_) => Err(EvaluationError::new("Invalid boolean condition for conclusion")),
         Evaluation::Number(value) => Ok(Evaluation::Boolean(value != 0.0)),
         Evaluation::Text(_) => Ok(Evaluation::Boolean(true)),
         Evaluation::Boolean(value) => Ok(Evaluation::Boolean(value)),
