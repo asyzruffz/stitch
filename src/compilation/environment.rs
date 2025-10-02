@@ -1,8 +1,9 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
-use std::hash::{Hash, Hasher};
 use std::rc::Rc;
+
+use derivative::Derivative;
 
 use crate::compilation::datatype::Datatype;
 use crate::compilation::evaluation::Evaluation;
@@ -66,16 +67,13 @@ impl fmt::Display for Environment {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(Derivative, Clone, Debug)]
+#[derivative(PartialEq, Eq, Hash)]
 pub struct Variable {
     pub name: String,
+    #[derivative(PartialEq="ignore")]
+    #[derivative(Hash="ignore")]
     pub datatype: Option<Datatype>,
-}
-
-impl Hash for Variable {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.name.hash(state);
-    }
 }
 
 impl Variable {
