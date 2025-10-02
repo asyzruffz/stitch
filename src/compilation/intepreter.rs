@@ -3,7 +3,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 
 use crate::compilation::conjunction::Conjunction;
-use crate::compilation::datatype::Datatype;
+use crate::compilation::datatype::{Datatype, VerbType};
 use crate::compilation::environment::{Environment, Variable};
 use crate::compilation::errors::EvaluationError;
 use crate::compilation::evaluation::Evaluation;
@@ -87,11 +87,13 @@ fn declare_noun(name: &str, super_type: Option<&Datatype>, body: &Statements, en
     
     if let Some(super_type) = super_type {
         match super_type {
-            Datatype::Custom(super_type_name) => noun_environment.borrow_mut()
+            Datatype::Noun(super_type_name) => noun_environment.borrow_mut()
                 .define(Variable::new("super", super_type), Evaluation::Noun(Substantive::new(super_type_name, noun_environment.clone()))),
             Datatype::Number => noun_environment.borrow_mut().define(Variable::new("super", super_type), Evaluation::Number(0.0)),
             Datatype::Text => noun_environment.borrow_mut().define(Variable::new("super", super_type), Evaluation::Text("".into())),
             Datatype::Boolean => noun_environment.borrow_mut().define(Variable::new("super", super_type), Evaluation::Boolean(false)),
+            Datatype::Verb(super_type_name) => return Err(EvaluationError::new(&format!("Invalid verb {super_type_name} as super type for noun."))),
+            Datatype::Adjective(super_type_name) => return Err(EvaluationError::new(&format!("Invalid adjective {super_type_name} as super type for noun."))),
         }
     }
 
@@ -106,15 +108,15 @@ fn declare_noun(name: &str, super_type: Option<&Datatype>, body: &Statements, en
         };
     }
 
-    let variable = Variable::new(name, &Datatype::Custom(name.into()));
+    let variable = Variable::new(name, &Datatype::Noun(name.into()));
     environment.borrow_mut().define(variable, Evaluation::Noun(Substantive::new(name, noun_environment)));
     Ok(Evaluation::Void)
 }
 
 fn declare_verb(name: &str, hence_type: Option<&Datatype>, subject_type: Option<Datatype>, object_declarations: Rc<[Statement]>, body: &Statements, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     let variable = match hence_type {
-        Some(datatype) => Variable::new(name, datatype),
-        None => Variable::with(name),
+        Some(datatype) => Variable::new(name, &Datatype::Verb(VerbType::new(name, Some(datatype.clone())))),
+        None => Variable::new(name, &Datatype::Verb(VerbType::new(name, None))),
     };
 
     environment.borrow_mut().define(variable, Evaluation::Action(Routine::new(name, subject_type, object_declarations, body)));
@@ -122,7 +124,7 @@ fn declare_verb(name: &str, hence_type: Option<&Datatype>, subject_type: Option<
 }
 
 fn declare_adjective(name: &str, subject_type: &Datatype, body: &Statements, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
-    let variable = Variable::new(name, &Datatype::Custom(name.into()));
+    let variable = Variable::new(name, &Datatype::Adjective(name.into()));
     environment.borrow_mut().define(variable, Evaluation::Adjective(Routine::new(name, Some(subject_type.clone()), Rc::default(), body)));
     Ok(Evaluation::Void)
 }

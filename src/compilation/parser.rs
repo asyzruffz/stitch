@@ -117,7 +117,7 @@ fn handle_noun_definition<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement,
     let super_type = if let Ok(_) = tokens.consume(TokenType::Is) {
         let datatype = match tokens.next() {
             Some(Token { name: TokenType::Type(datatype), .. }) => datatype.to_owned(),
-            Some(Token { name: TokenType::Identifier, lexeme, .. }) => Datatype::Custom(lexeme.to_owned().into()),
+            Some(Token { name: TokenType::Identifier, lexeme, .. }) => Datatype::Noun(lexeme.to_owned().into()),
             token => {
                 let msg = format!("Invalid datatype {token:?}");
                 return Err(CompilerError::LexicalError(msg.into()));
@@ -160,7 +160,7 @@ fn handle_verb_definition<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement,
     let hence_type = if let Ok(_) = tokens.consume(TokenType::Is) {
         let datatype = match tokens.next() {
             Some(Token { name: TokenType::Type(datatype), .. }) => datatype.to_owned(),
-            Some(Token { name: TokenType::Identifier, lexeme, .. }) => Datatype::Custom(lexeme.to_owned().into()),
+            Some(Token { name: TokenType::Identifier, lexeme, .. }) => Datatype::Noun(lexeme.to_owned().into()),
             token => {
                 let msg = format!("Invalid datatype {token:?}");
                 return Err(CompilerError::LexicalError(msg.into()));
@@ -175,7 +175,7 @@ fn handle_verb_definition<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement,
     let subject_type = if let Ok(_) = tokens.consume(TokenType::For) {
         let datatype = match tokens.next() {
             Some(Token { name: TokenType::Type(datatype), .. }) => datatype.to_owned(),
-            Some(Token { name: TokenType::Identifier, lexeme, .. }) => Datatype::Custom(lexeme.to_owned().into()),
+            Some(Token { name: TokenType::Identifier, lexeme, .. }) => Datatype::Noun(lexeme.to_owned().into()),
             token => {
                 let msg = format!("Invalid datatype {token:?}");
                 return Err(CompilerError::LexicalError(msg.into()));
@@ -255,7 +255,7 @@ fn handle_adjective_definition<'a, Buffer>(tokens : &mut Buffer) -> Result<State
     let subject_type = if let Ok(_) = tokens.consume(TokenType::For) {
         let datatype = match tokens.next() {
             Some(Token { name: TokenType::Type(datatype), .. }) => datatype.to_owned(),
-            Some(Token { name: TokenType::Identifier, lexeme, .. }) => Datatype::Custom(lexeme.to_owned().into()),
+            Some(Token { name: TokenType::Identifier, lexeme, .. }) => Datatype::Noun(lexeme.to_owned().into()),
             token => {
                 let msg = format!("Invalid datatype {token:?}");
                 return Err(CompilerError::LexicalError(msg.into()));
@@ -312,7 +312,7 @@ fn handle_so_declaration<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement, 
 
     let datatype = match tokens.next() {
         Some(Token { name: TokenType::Type(datatype), .. }) => datatype.to_owned(),
-        Some(Token { name: TokenType::Identifier, lexeme, .. }) => Datatype::Custom(lexeme.to_owned().into()),
+        Some(Token { name: TokenType::Identifier, lexeme, .. }) => Datatype::Noun(lexeme.to_owned().into()),
         token => {
             let msg = format!("Invalid datatype {token:?}");
             return Err(CompilerError::LexicalError(msg.into()));
