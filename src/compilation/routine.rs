@@ -31,7 +31,9 @@ impl Routine {
                 if subject.datatype() == datatype {
                     Ok(())
                 } else {
-                    Err(EvaluationError::new("Invalid subject type"))
+                    let expected_type = datatype.map_or("Void".into(), |dt| format!("{dt}"));
+                    let found_type = subject.datatype().map_or("Void".into(), |dt| format!("{dt}"));
+                    Err(EvaluationError::new(&format!("Invalid subject type, expected {expected_type} but found {found_type}")))
                 }
             },
         }
@@ -44,12 +46,14 @@ impl Routine {
 
         let parameters = if parameters.is_empty() {
             Evaluation::Void
+        } else if parameters.len() == 1 {
+            parameters.first().unwrap().clone()
         } else {
             Evaluation::Collective(parameters.into())
         };
         
-        if !parameters.parity(&object) {
-            Err(EvaluationError::new("Invalid objects for action"))
+        if let Err(err_msg) = parameters.parity(&object) {
+            Err(EvaluationError::new(&format!("Invalid object(s) for action {}, {}", self.name, err_msg)))
         } else {
             Ok(())
         }
