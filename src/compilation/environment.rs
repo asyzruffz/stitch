@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
@@ -44,6 +45,25 @@ impl Environment {
     pub fn contains_var(&self, name: &str) -> bool {
         self.values.contains_key(&Variable::with(name))
     }
+
+    fn display(&self, f: &mut fmt::Formatter, indent: usize) -> fmt::Result {
+        if let Some(outer) = self.outer.clone() {
+            outer.borrow().display(f, indent + 2)?;
+        }
+        for (var, eval) in &self.values {
+            writeln!(f, "{}{} = {}", " ".repeat(indent), var, eval)?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for Environment {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Environment {{")?;
+        self.display(f, 2)?;
+        writeln!(f, "}}")?;
+        Ok(())
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -70,6 +90,15 @@ impl Variable {
         Self {
             name: name.to_string(),
             datatype: None
+        }
+    }
+}
+
+impl fmt::Display for Variable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Variable { name, datatype: Some(datatype) } => write!(f, "{}: {}", name, datatype),
+            Variable { name, datatype: None } => write!(f, "{}", name),
         }
     }
 }
