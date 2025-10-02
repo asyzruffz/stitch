@@ -100,3 +100,70 @@ impl fmt::Display for Variable {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn variable_equality() {
+        let var1 = Variable::new("x", &Datatype::Number);
+        let var2 = Variable::new("x", &Datatype::Text);
+        let var3 = Variable::with("x");
+        let var4 = Variable::with("y");
+
+        assert_eq!(var1, Variable::new("x", &Datatype::Number));
+        assert_eq!(var1, var2);
+        assert_eq!(var1, var3);
+        assert_ne!(var1, var4);
+    }
+
+    #[test]
+    fn define_and_get() {
+        let mut env = Environment::default();
+        let var = Variable::new("x", &Datatype::Number);
+        let eval = Evaluation::Number(42.0);
+
+        env.define(var.clone(), eval.clone());
+        assert_eq!(env.get("x"), Some(eval));
+    }
+
+    #[test]
+    fn assign_existing_variable() {
+        let mut env = Environment::default();
+        let var = Variable::new("x", &Datatype::Number);
+        let eval1 = Evaluation::Number(42.0);
+        let eval2 = Evaluation::Number(100.0);
+
+        env.define(var.clone(), eval1);
+        assert!(env.assign(var.clone(), eval2.clone()).is_ok());
+        assert_eq!(env.get("x"), Some(eval2));
+    }
+
+    #[test]
+    fn assign_nonexistent_variable() {
+        let mut env = Environment::default();
+        let var = Variable::new("x", &Datatype::Number);
+        let eval = Evaluation::Number(42.0);
+
+        assert!(env.assign(var.clone(), eval).is_err());
+    }
+
+    #[test]
+    fn nested_environment() {
+        let outer_env = Rc::new(RefCell::new(Environment::default()));
+        let mut inner_env = Environment::within_scope(outer_env.clone());
+
+        let outer_var = Variable::new("y", &Datatype::Number);
+        let outer_eval = Evaluation::Number(10.0);
+        outer_env.borrow_mut().define(outer_var.clone(), outer_eval.clone());
+
+        let inner_var = Variable::new("x", &Datatype::Number);
+        let inner_eval = Evaluation::Number(20.0);
+        inner_env.define(inner_var.clone(), inner_eval.clone());
+
+        assert_eq!(inner_env.get("x"), Some(inner_eval));
+        assert_eq!(inner_env.get("y"), Some(outer_eval));
+        assert_eq!(outer_env.borrow().get("x"), None);
+    }
+}
