@@ -3,15 +3,15 @@ use std::fs;
 
 use walkdir::WalkDir;
 
-use crate::projects::project::Project;
+use crate::compilation::errors::CompilerError;
 use crate::compilation::intepreter::Intepreter;
 use crate::compilation::intermediate::Intermediate;
+use crate::compilation::parser::Parser;
 use crate::compilation::source::Source;
 use crate::compilation::scanner::{self, Scanner};
-use crate::compilation::token::Token;
-use crate::compilation::parser::Parser;
 use crate::compilation::statement::Statement;
-use crate::compilation::errors::CompilerError;
+use crate::compilation::token::Token;
+use crate::projects::project::Project;
 use crate::utils::hasher::hash_file;
 
 pub trait CompilerState {}
