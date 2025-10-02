@@ -7,6 +7,7 @@ use crate::compilation::primitive::Primitive;
 use crate::compilation::prefix::Prefix;
 use crate::compilation::statement::{Statement, Statements};
 use crate::compilation::errors::CompilerError;
+use crate::compilation::verb::Verb;
 
 use super::precedent::Precedent;
 
@@ -400,9 +401,14 @@ fn handle_phrase<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<Phra
 
                 let object = handle_collective(tokens, r_bp)?;
     
+                let verb = match op.name {
+                    TokenType::Identifier => Verb::Action(op.lexeme.clone()),
+                    _ => op.name.into(),
+                };
+
                 phrase = Phrase::Action {
                     subject: Some(Box::new(phrase)),
-                    verb: op.name.into(),
+                    verb: verb,
                     object: Some(Box::new(object)),
                 };
 
