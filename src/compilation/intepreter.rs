@@ -59,7 +59,7 @@ impl Intepreter {
         };
     }
 
-    pub fn define_object(&mut self, object: Evaluation, parameters: &[Statement], environment: Rc<RefCell<Environment>>) -> Result<(), EvaluationError> {
+    pub fn define_object(&mut self, object: Evaluation, parameters: &[Statement]) -> Result<(), EvaluationError> {
         let arguments = match object {
             Evaluation::Void => return Err(EvaluationError::new("Invalid object for definition.")),
             Evaluation::Collective(objs) => parameters.iter().zip(objs.as_ref().into_iter().cloned().collect::<Vec<_>>()).collect::<Vec<_>>(),
@@ -69,9 +69,9 @@ impl Intepreter {
         arguments.into_iter()
             .map(|(param, obj)| match param {
                 Statement::So { name, datatype, initializer } => {
-                    declare_so(name, datatype, initializer.as_ref(), environment.clone())?;
+                    declare_so(name, datatype, initializer.as_ref(), self.environment.clone())?;
                     let variable = Variable::new(name, datatype);
-                    match environment.borrow_mut().assign(variable, obj) {
+                    match self.environment.borrow_mut().assign(variable, obj) {
                         Err(variable) => Err(EvaluationError::new(&format!("Undefined variable {}.", variable))),
                         Ok(_) => Ok(()),
                     }
@@ -133,16 +133,24 @@ fn declare_so(name: &str, datatype: &Datatype, initializer : Option<&Phrase>, en
     let variable = Variable::new(name, datatype);
     match initializer {
         None => {
-            environment.borrow_mut().define(variable, Evaluation::Void);
-            Ok(Evaluation::Void)
+            let default_value = match datatype {
+                Datatype::Number => Evaluation::Number(0.0),
+                Datatype::Text => Evaluation::Text("".into()),
+                Datatype::Boolean => Evaluation::Boolean(false),
+                Datatype::Noun(name) => Evaluation::Void, //TODO: Implement noun default constructor
+                Datatype::Verb(verb) => Evaluation::Void, //TODO: Implement anonymous default verb
+                Datatype::Adjective(name) => Evaluation::Void, //TODO: Implement anonymous default adjective
+            };
+            environment.borrow_mut().define(variable, default_value.clone());
+            Ok(default_value)
         },
         Some(phrase) => {
             let result = evaluate(phrase, environment.clone())?;
             match result {
-                Evaluation::Void => Err(EvaluationError::new("Unable to initialize so declaration as void")),
+                Evaluation::Void => Err(EvaluationError::new("Unable to initialize so declaration with Void phrase.")),
                 value => {
-                    environment.borrow_mut().define(variable, value);
-                    Ok(Evaluation::Void)
+                    environment.borrow_mut().define(variable, value.clone());
+                    Ok(value)
                 },
             }
         },
@@ -410,7 +418,7 @@ fn evaluate_qualifier(subject: Evaluation, adjective: Evaluation, environment: R
 }
 
 fn evaluate_routine(subject: Evaluation, object: Evaluation, routine: &Routine, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
-    let mut intepreter = Intepreter::within_scope(environment.clone());
+    let mut intepreter = Intepreter::within_scope(environment);
     
     routine.validate_subject(&subject)?;
     intepreter.define_subject(subject.clone());
@@ -418,7 +426,7 @@ fn evaluate_routine(subject: Evaluation, object: Evaluation, routine: &Routine, 
     routine.validate_object(&object, &mut intepreter)?;
     match object {
         Evaluation::Void | Evaluation::Skip(_) => {},
-        obj => intepreter.define_object(obj, routine.object_declarations.as_ref(), environment.clone())?,
+        obj => intepreter.define_object(obj, routine.object_declarations.as_ref())?,
     };
 
     for statement in routine.instructions.0.as_ref() {
