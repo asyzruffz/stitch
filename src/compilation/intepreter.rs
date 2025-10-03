@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use crate::compilation::conjunction::Conjunction;
 use crate::compilation::datatype::{Datatype, VerbType};
-use crate::compilation::environment::{Environment, Variable};
+use crate::compilation::environment::Environment;
 use crate::compilation::errors::EvaluationError;
 use crate::compilation::evaluation::Evaluation;
 use crate::compilation::phrase::Phrase;
@@ -13,6 +13,7 @@ use crate::compilation::primitive::Primitive;
 use crate::compilation::routine::Routine;
 use crate::compilation::statement::{Statement, Statements };
 use crate::compilation::substantive::Substantive;
+use crate::compilation::variable::{Variable, VariableValue};
 use crate::compilation::verb::Verb;
 
 
