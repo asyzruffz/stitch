@@ -1,8 +1,10 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::fs;
 
 use walkdir::WalkDir;
 
+use crate::compilation::environment::Environment;
 use crate::compilation::errors::CompilerError;
 use crate::compilation::intepreter::Intepreter;
 use crate::compilation::intermediate::Intermediate;
@@ -10,6 +12,7 @@ use crate::compilation::parser::Parser;
 use crate::compilation::source::Source;
 use crate::compilation::scanner::{self, Scanner};
 use crate::compilation::statement::Statement;
+use crate::compilation::std::add_builtin_features;
 use crate::compilation::token::Token;
 use crate::projects::project::Project;
 use crate::utils::hasher::hash_file;
@@ -120,7 +123,10 @@ impl Compiler<Tokenized> {
 
 impl Compiler<Parsed> {
     pub fn evaluate(self) -> Result<Compiler<Evaluated>, CompilerError> {
-        let mut intepreter = Intepreter::new();
+        let std_environment = Rc::new(RefCell::new(Environment::default()));
+        add_builtin_features(std_environment.clone());
+
+        let mut intepreter = Intepreter::within_scope(std_environment);
 
         for statement in self.state.statements.as_ref() {
             intepreter.execute(&statement)
