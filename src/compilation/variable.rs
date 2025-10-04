@@ -1,10 +1,11 @@
 use std::fmt;
 
 use derivative::Derivative;
+use serde::{Deserialize, Serialize};
 
 use crate::compilation::{datatype::Datatype, evaluation::Evaluation};
 
-#[derive(Derivative, Clone, Debug)]
+#[derive(Derivative, Clone, Debug, Deserialize, Serialize)]
 #[derivative(PartialEq, Eq, Hash)]
 pub struct Variable {
     pub name: String,

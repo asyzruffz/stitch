@@ -60,7 +60,7 @@ impl Intepreter {
         };
     }
 
-    pub fn define_object(&mut self, object: Evaluation, parameters: &[Statement]) -> Result<(), EvaluationError> {
+    pub fn define_object(&mut self, object: Evaluation, parameters: &[VariableValue]) -> Result<(), EvaluationError> {
         let arguments = match object {
             Evaluation::Void => return Err(EvaluationError::new("Invalid object for definition.")),
             Evaluation::Collective(objs) => parameters.iter().zip(objs.as_ref().into_iter().cloned().collect::<Vec<_>>()).collect::<Vec<_>>(),
@@ -68,16 +68,15 @@ impl Intepreter {
         };
 
         arguments.into_iter()
-            .map(|(param, obj)| match param {
-                Statement::So { name, datatype, initializer } => {
-                    declare_so(name, datatype, initializer.as_ref(), self.environment.clone())?;
-                    let variable = Variable::new(name, datatype);
-                    match self.environment.borrow_mut().assign(variable, obj) {
+            .map(|(param, obj)| {
+                let VariableValue { variable, value } = param;
+
+                self.environment.borrow_mut().define(variable.clone(), value.to_owned());
+                
+                match self.environment.borrow_mut().assign(variable.clone(), obj) {
                         Err(variable) => Err(EvaluationError::new(&format!("Undefined variable {}.", variable))),
                         Ok(_) => Ok(()),
                     }
-                },
-                _ => Err(EvaluationError::new("Invalid param statement")),
             })
             .collect()
     }
@@ -115,12 +114,34 @@ fn declare_noun(name: &str, super_type: Option<&Datatype>, body: &Statements, en
 }
 
 fn declare_verb(name: &str, hence_type: Option<&Datatype>, subject_type: Option<Datatype>, object_declarations: Rc<[Statement]>, body: &Statements, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
+    let params = object_declarations.iter().map(|statement| match statement {
+        Statement::So { name, datatype, initializer } => {
+            let value = match initializer {
+                Some(phrase) => evaluate(phrase, environment.clone())?,
+                None => match datatype {
+                    Datatype::Number => Evaluation::Number(0.0),
+                    Datatype::Text => Evaluation::Text("".into()),
+                    Datatype::Boolean => Evaluation::Boolean(false),
+                    Datatype::Noun(name) => Evaluation::Void, //TODO: Implement noun default constructor
+                    Datatype::Verb(verb) => Evaluation::Void, //TODO: Implement anonymous default verb
+                    Datatype::Adjective(name) => Evaluation::Void, //TODO: Implement anonymous default adjective
+                },
+            };
+            Ok(VariableValue {
+                variable: Variable::new(name, datatype),
+                value,
+            })
+        },
+        _ => Err(EvaluationError::new("Invalid param statement")),
+    }).collect::<Result<Rc<[VariableValue]>, _>>()?;
+
+    let param_vars = params.iter().map(|v| v.variable.clone()).collect::<Vec<_>>();
     let variable = match hence_type {
-        Some(datatype) => Variable::new(name, &Datatype::Verb(VerbType::new(name, Some(datatype.clone())))),
-        None => Variable::new(name, &Datatype::Verb(VerbType::new(name, None))),
+        Some(datatype) => Variable::new(name, &Datatype::Verb(VerbType::new(name, param_vars.as_ref(), Some(datatype.clone())))),
+        None => Variable::new(name, &Datatype::Verb(VerbType::new(name, param_vars.as_ref(), None))),
     };
 
-    environment.borrow_mut().define(variable, Evaluation::Action(Routine::new(name, subject_type, object_declarations, body)));
+    environment.borrow_mut().define(variable, Evaluation::Action(Routine::new(name, subject_type, params, body)));
     Ok(Evaluation::Void)
 }
 
@@ -424,19 +445,13 @@ fn evaluate_routine(subject: Evaluation, object: Evaluation, routine: &Routine, 
     routine.validate_subject(&subject)?;
     intepreter.define_subject(subject.clone());
 
-    routine.validate_object(&object, &mut intepreter)?;
+    routine.validate_object(&object)?;
     match object {
         Evaluation::Void | Evaluation::Skip(_) => {},
-        obj => intepreter.define_object(obj, routine.object_declarations.as_ref())?,
+        obj => intepreter.define_object(obj, routine.object_parameters.as_ref())?,
     };
 
-    for statement in routine.instructions.0.as_ref() {
-        let eval = intepreter.execute(statement)?;
-        if let Evaluation::Conclusion(val) = eval {
-            return Ok(*val);
-        }
-    }
-    Ok(Evaluation::Void)
+    routine.execute_using(&mut intepreter)
 }
 
 fn evaluate_truth(value : Evaluation, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {

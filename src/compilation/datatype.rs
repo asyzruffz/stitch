@@ -2,6 +2,8 @@ use std::fmt;
 use std::rc::Rc;
 use serde::{Deserialize, Serialize};
 
+use crate::compilation::variable::Variable;
+
 #[derive(PartialEq, Eq, Clone, Debug, Deserialize, Serialize)]
 pub enum Datatype {
     Number,
@@ -26,14 +28,15 @@ impl fmt::Display for Datatype {
 #[derive(PartialEq, Eq, Clone, Debug, Deserialize, Serialize)]
 pub struct VerbType {
     pub name: Rc<str>,
-    //pub parameters: Rc<[Variable]>,
+    pub parameters: Rc<[Variable]>,
     pub hence_type: Option<Box<Datatype>>,
 }
 
 impl VerbType {
-    pub fn new(name: &str, hence_type: Option<Datatype>) -> Self {
+    pub fn new(name: &str, params: &[Variable], hence_type: Option<Datatype>) -> Self {
         Self {
             name: name.into(),
+            parameters: Rc::from(params),
             hence_type: hence_type.map(Box::new),
         }
     }
@@ -41,9 +44,11 @@ impl VerbType {
 
 impl fmt::Display for VerbType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.hence_type {
-            Some(datatype) => write!(f, "{}() -> {datatype}", self.name),
-            None => write!(f, "{}() -> Void", self.name),
-        }
+        let params = self.parameters.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(", ");
+        let hence = match &self.hence_type {
+            Some(datatype) => datatype.to_string(),
+            None => "Void".into(),
+        };
+        write!(f, "{}({params}) -> {hence}", self.name)
     }
 }
