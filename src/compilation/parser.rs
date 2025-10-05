@@ -440,7 +440,7 @@ fn handle_collective<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<
                 if tokens.match_next(&[TokenType::And, TokenType::Or]) {
                     if let Precedent::Infix(_, r_bp) = token.name.precedent() {
                         phrases.push(handle_phrase(tokens, r_bp)?);
-                    } else { 
+                    } else {
                         let msg = format!("[line {}] Error at '{}': {} has a wrong precedent type.", token.line, token.lexeme, token.name);
                         return Err(CompilerError::LexicalError(msg.into()))
                     }
@@ -449,7 +449,7 @@ fn handle_collective<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<
                 } else {
                     if let Precedent::Infix(_, r_bp) = token.name.precedent() {
                         phrases.push(handle_phrase(tokens, r_bp)?);
-                    } else { 
+                    } else {
                         let msg = format!("[line {}] Error at '{}': {} has a wrong precedent type.", token.line, token.lexeme, token.name);
                         return Err(CompilerError::LexicalError(msg.into()))
                     }

@@ -78,9 +78,9 @@ impl Intepreter {
                 self.environment.borrow_mut().define(variable.clone(), value.to_owned());
                 
                 match self.environment.borrow_mut().assign(variable.clone(), obj) {
-                        Err(variable) => Err(EvaluationError::new(&format!("Undefined variable {}.", variable))),
-                        Ok(_) => Ok(()),
-                    }
+                    Err(variable) => Err(EvaluationError::new(&format!("Undefined variable {}.", variable))),
+                    Ok(_) => Ok(()),
+                }
             })
             .collect()
     }

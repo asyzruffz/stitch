@@ -203,6 +203,7 @@ impl TokenType {
     pub fn precedent(&self) -> Precedent {
         match self {
             TokenType::Identifier => Precedent::Infix(1, 2),
+            TokenType::Comma => Precedent::Infix(1, 2),
 
             TokenType::When => Precedent::Postfix(3),
 
@@ -227,7 +228,6 @@ impl TokenType {
             TokenType::RightBrace => Precedent::None,
 
             TokenType::Adjective => Precedent::None,
-            TokenType::Comma => Precedent::None,
             TokenType::Dot => Precedent::None,
             TokenType::For => Precedent::None,
             TokenType::Hence => Precedent::None,

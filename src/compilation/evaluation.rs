@@ -85,11 +85,25 @@ impl Evaluation {
             (Evaluation::Number(_), Evaluation::Number(_)) => Ok(()),
             (Evaluation::Text(_), Evaluation::Text(_)) => Ok(()),
             (Evaluation::Boolean(_), Evaluation::Boolean(_)) => Ok(()),
-            (Evaluation::Collective(evaluations1), Evaluation::Collective(evaluations2)) => {
-                if evaluations1.len() == evaluations2.len() && evaluations1.iter().zip(evaluations2.iter()).all(|(e1, e2)| e1.parity(e2).is_ok()) {
+            (Evaluation::Collective(expected), Evaluation::Collective(found)) => {
+                if expected.len() == found.len() && expected.iter().zip(found.iter()).all(|(e1, e2)| e1.parity(e2).is_ok()) {
                     Ok(())
                 } else {
                     Err("collectives do not match in length or type".into())
+                }
+            },
+            (Evaluation::Collective(expected), found) => {
+                if expected.len() == 1 {
+                    expected[0].parity(found)
+                } else {
+                    Err(format!("expected collective of {} but found single object", expected.len()).into())
+                }
+            },
+            (expected, Evaluation::Collective(found)) => {
+                if found.len() == 1 {
+                    expected.parity(&found[0])
+                } else {
+                    Err(format!("expected single object but found collective of {}", found.len()).into())
                 }
             },
             (expected, found) => { //TODO: Handle Noun, Action, Adjective
