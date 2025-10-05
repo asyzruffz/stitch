@@ -27,7 +27,7 @@ impl Routine {
         }
     }
 
-    pub fn new_native(name: &str, subject_type: Option<Datatype>, object_parameters: Rc<[VariableValue]>, func: fn(Evaluation) -> Result<Evaluation, EvaluationError>) -> Self {
+    pub fn new_native(name: &str, subject_type: Option<Datatype>, object_parameters: Rc<[VariableValue]>, func: fn(Evaluation, Evaluation) -> Result<Evaluation, EvaluationError>) -> Self {
         Self { 
             name: name.into(), 
             subject_type,
@@ -66,10 +66,11 @@ impl Routine {
             Instruction::NoOp => Ok(Evaluation::Void),
 
             Instruction::BuiltIn(ref func) => {
-                let parameters = self.object_parameters.iter().map(|param| {
+                let subject = intepreter.get("it").unwrap();
+                let objects = self.object_parameters.iter().map(|param| {
                     intepreter.get(param.variable.name.as_str()).unwrap()
                 }).collect::<Vec<_>>();
-                func.0.as_ref()(parameters.into())
+                func.0.as_ref()(subject, objects.into())
             },
 
             Instruction::Custom(ref statements) => {
@@ -115,11 +116,11 @@ enum Instruction {
 }
 
 #[derive(Clone)]
-struct BuiltInInstruction(Rc<dyn Fn(Evaluation) -> Result<Evaluation, EvaluationError>>);
+struct BuiltInInstruction(Rc<dyn Fn(Evaluation, Evaluation) -> Result<Evaluation, EvaluationError>>);
 
 impl Default for BuiltInInstruction {
     fn default() -> Self {
-        Self(Rc::new(|_| Ok(Evaluation::Void)))
+        Self(Rc::new(|_, _| Ok(Evaluation::Void)))
     }
 }
 
