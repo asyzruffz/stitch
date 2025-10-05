@@ -37,8 +37,8 @@ impl fmt::Display for Phrase {
             Phrase::Primary(primitive) => write!(f, "{primitive}"),
             Phrase::Postfix { noun, adjective } => write!(f, "({noun} when {adjective})"),
             Phrase::Prefix { prefix, noun } => write!(f, "(prefix {prefix} {noun})"),
-            Phrase::Action { subject: Some(sub), verb, object: Some(obj) } => write!(f, "{sub} {verb} {obj}"),
-            Phrase::Action { subject, verb, object } => write!(f, "{subject:?} {verb} {object:?}"),
+            Phrase::Action { subject: Some(sub), verb, object: Some(obj) } => write!(f, "({sub}) {verb} ({obj})"),
+            Phrase::Action { subject, verb, object } => write!(f, "({subject:?}) {verb} ({object:?})"),
             Phrase::Condition { left, conjunction, right } => write!(f, "(condition {left} {conjunction} {right})"),
         }
     }
