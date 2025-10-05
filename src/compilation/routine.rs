@@ -32,7 +32,7 @@ impl Routine {
             name: name.into(), 
             subject_type,
             object_parameters,
-            instruction: Instruction::BuiltIn(BuiltInInstruction(Box::new(func))),
+            instruction: Instruction::BuiltIn(BuiltInInstruction(Rc::new(func))),
         }
     }
 
@@ -106,23 +106,18 @@ enum Instruction {
     Custom(Statements),
 }
 
-struct BuiltInInstruction(Box<dyn Fn(Evaluation) -> Result<Evaluation, EvaluationError>>);
+#[derive(Clone)]
+struct BuiltInInstruction(Rc<dyn Fn(Evaluation) -> Result<Evaluation, EvaluationError>>);
 
 impl Default for BuiltInInstruction {
     fn default() -> Self {
-        Self(Box::new(|_| Ok(Evaluation::Void)))
+        Self(Rc::new(|_| Ok(Evaluation::Void)))
     }
 }
 
 impl PartialEq for BuiltInInstruction {
     fn eq(&self, _: &Self) -> bool {
         false
-    }
-}
-
-impl Clone for BuiltInInstruction {
-    fn clone(&self) -> Self {
-        Self(Box::new(|_| Ok(Evaluation::Void)))
     }
 }
 
