@@ -66,8 +66,10 @@ impl Routine {
             Instruction::NoOp => Ok(Evaluation::Void),
 
             Instruction::BuiltIn(ref func) => {
-                let parameters: Evaluation = self.object_parameters.clone().into();
-                func.0.as_ref()(parameters)
+                let parameters = self.object_parameters.iter().map(|param| {
+                    intepreter.get(param.variable.name.as_str()).unwrap()
+                }).collect::<Vec<_>>();
+                func.0.as_ref()(parameters.into())
             },
 
             Instruction::Custom(ref statements) => {
@@ -89,12 +91,18 @@ impl Into<Evaluation> for Rc<[VariableValue]> {
             .map(|param| param.value.to_owned())
             .collect::<Vec<_>>();
 
-        if parameters.is_empty() {
+        Evaluation::from(parameters)
+    }
+}
+
+impl From<Vec<Evaluation>> for Evaluation {
+    fn from(values: Vec<Evaluation>) -> Self {
+        if values.is_empty() {
             Evaluation::Void
-        } else if parameters.len() == 1 {
-            parameters.first().unwrap().clone()
+        } else if values.len() == 1 {
+            values.first().unwrap().to_owned()
         } else {
-            Evaluation::Collective(parameters.into())
+            Evaluation::Collective(values.into())
         }
     }
 }

@@ -36,7 +36,7 @@ pub fn add_print(environment: Rc<RefCell<Environment>>) {
     environment.borrow_mut().define(variable, action);
 }
 
-fn print_fn(_args: Evaluation) -> Result<Evaluation, EvaluationError> {
-    println!("Test Print");
+fn print_fn(args: Evaluation) -> Result<Evaluation, EvaluationError> {
+    println!("{args}");
     Ok(Evaluation::Void)
 }

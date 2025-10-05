@@ -45,6 +45,10 @@ impl Intepreter {
         }
     }
 
+    pub fn get(&self, name: &str) -> Option<Evaluation> {
+        self.environment.borrow().get(name)
+    }
+
     pub fn define(&mut self, var: Variable, value: Evaluation) {
         self.environment.borrow_mut().define(var, value);
     }
