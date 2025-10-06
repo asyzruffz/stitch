@@ -126,7 +126,10 @@ fn declare_verb(name: &str, hence_type: Option<&Datatype>, subject_type: Option<
                     Datatype::Number => Evaluation::Number(0.0),
                     Datatype::Text => Evaluation::Text("".into()),
                     Datatype::Boolean => Evaluation::Boolean(false),
-                    Datatype::Noun(name) => Evaluation::Void, //TODO: Implement noun default constructor
+                    Datatype::Noun(name) => match environment.borrow().get(name.as_ref()) {
+                        Some(value) => value,
+                        None => return Err(EvaluationError::new(&format!("Undefined noun \"{name}\"."))),
+                    },
                     Datatype::Verb(verb) => Evaluation::Void, //TODO: Implement anonymous default verb
                     Datatype::Adjective(name) => Evaluation::Void, //TODO: Implement anonymous default adjective
                 },
@@ -163,7 +166,10 @@ fn declare_so(name: &str, datatype: &Datatype, initializer : Option<&Phrase>, en
                 Datatype::Number => Evaluation::Number(0.0),
                 Datatype::Text => Evaluation::Text("".into()),
                 Datatype::Boolean => Evaluation::Boolean(false),
-                Datatype::Noun(name) => Evaluation::Void, //TODO: Implement noun default constructor
+                Datatype::Noun(name) => match environment.borrow().get(name.as_ref()) {
+                    Some(value) => value,
+                    None => return Err(EvaluationError::new(&format!("Undefined noun \"{name}\"."))),
+                },
                 Datatype::Verb(verb) => Evaluation::Void, //TODO: Implement anonymous default verb
                 Datatype::Adjective(name) => Evaluation::Void, //TODO: Implement anonymous default adjective
             };
