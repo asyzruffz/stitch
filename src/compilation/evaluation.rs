@@ -50,7 +50,7 @@ impl Evaluation {
             (Evaluation::Number(lval), Evaluation::Number(rval)) => (lval - rval).abs() < f32::EPSILON,
             (Evaluation::Text(lval), Evaluation::Text(rval)) => lval.as_ref() == rval.as_ref(),
             (Evaluation::Boolean(lval), Evaluation::Boolean(rval)) => lval == rval,
-            //TODO: Implement custom equality for Noun, Action, Adjective
+            // TODO: Implement custom equality for Noun, Action, Adjective
             _ => false,
         }
     }
@@ -117,7 +117,7 @@ impl Evaluation {
             } else {
                 Err(format!("expected {} but found {}", expected.name, found.name).into())
             },
-            (expected, found) => { //TODO: Handle parity for Action, Adjective
+            (expected, found) => { // TODO: Handle parity for Action, Adjective
                 let expected_type = expected.datatype().map_or("Void".into(), |dt| format!("{dt}"));
                 let found_type = found.datatype().map_or("Void".into(), |dt| format!("{dt}"));
                 Err(format!("expected {} but found {}", expected_type, found_type).into())

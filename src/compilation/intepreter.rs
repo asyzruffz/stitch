@@ -130,8 +130,8 @@ fn declare_verb(name: &str, hence_type: Option<&Datatype>, subject_type: Option<
                         Some(value) => value,
                         None => return Err(EvaluationError::new(&format!("Undefined noun \"{name}\"."))),
                     },
-                    Datatype::Verb(verb) => Evaluation::Void, //TODO: Implement anonymous default verb
-                    Datatype::Adjective(name) => Evaluation::Void, //TODO: Implement anonymous default adjective
+                    Datatype::Verb(verb) => Evaluation::Void, // TODO: Implement anonymous default verb
+                    Datatype::Adjective(name) => Evaluation::Void, // TODO: Implement anonymous default adjective
                 },
             };
             Ok(VariableValue {
@@ -170,8 +170,8 @@ fn declare_so(name: &str, datatype: &Datatype, initializer : Option<&Phrase>, en
                     Some(value) => value,
                     None => return Err(EvaluationError::new(&format!("Undefined noun \"{name}\"."))),
                 },
-                Datatype::Verb(verb) => Evaluation::Void, //TODO: Implement anonymous default verb
-                Datatype::Adjective(name) => Evaluation::Void, //TODO: Implement anonymous default adjective
+                Datatype::Verb(verb) => Evaluation::Void, // TODO: Implement anonymous default verb
+                Datatype::Adjective(name) => Evaluation::Void, // TODO: Implement anonymous default adjective
             };
             environment.borrow_mut().define(variable, default_value.clone());
             Ok(default_value)
