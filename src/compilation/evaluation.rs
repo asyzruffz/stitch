@@ -1,7 +1,7 @@
 use std::fmt;
 use std::rc::Rc;
 
-use crate::compilation::datatype::Datatype;
+use crate::compilation::datatype::{Datatype, VerbType};
 use crate::compilation::routine::Routine;
 use crate::compilation::substantive::Substantive;
 
@@ -64,10 +64,12 @@ impl Evaluation {
             Evaluation::Text(_) => Some(Datatype::Text),
             Evaluation::Boolean(_) => Some(Datatype::Boolean),
             Evaluation::Collective(_) => None,
-            //TODO: Implement custom datatype for Noun, Action, Adjective
-            Evaluation::Noun(_) => None,
-            Evaluation::Action(_) => None,
-            Evaluation::Adjective(_) => None,
+            Evaluation::Noun(substantive) => Some(Datatype::Noun(substantive.name.clone())),
+            Evaluation::Action(routine) => {
+                let variables = routine.object_parameters.iter().map(|param| param.variable.clone()).collect::<Vec<_>>();
+                Some(Datatype::Verb(VerbType::new(routine.name.as_ref(), variables.as_slice(), routine.subject_type.clone())))
+            },
+            Evaluation::Adjective(routine) => Some(Datatype::Adjective(routine.name.clone())),
         }
     }
 
