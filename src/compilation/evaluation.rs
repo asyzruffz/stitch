@@ -12,7 +12,7 @@ pub enum Evaluation {
     Conclusion(Box<Evaluation>),
     Number(f32),
     Text(Rc<str>),
-    Boolean(bool),
+    Notion(bool),
     Collective(Rc<[Evaluation]>),
     Noun(Substantive),
     Action(Routine),
@@ -27,7 +27,7 @@ impl fmt::Display for Evaluation {
             Evaluation::Conclusion(eval) => write!(f, "conclusion ({})", eval.as_ref()),
             Evaluation::Number(value) => write!(f, "{}", value),
             Evaluation::Text(value) => write!(f, "{}", value),
-            Evaluation::Boolean(value) => write!(f, "{}", value),
+            Evaluation::Notion(value) => write!(f, "{}", value),
             Evaluation::Collective(evaluations) => write!(f, "{}", evaluations.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")),
             Evaluation::Noun(substantive) => write!(f, "{}", substantive.name),
             Evaluation::Action(routine) => write!(f, "{}()", routine.name),
@@ -49,7 +49,7 @@ impl Evaluation {
             (_, Evaluation::Void) => false,
             (Evaluation::Number(lval), Evaluation::Number(rval)) => (lval - rval).abs() < f32::EPSILON,
             (Evaluation::Text(lval), Evaluation::Text(rval)) => lval.as_ref() == rval.as_ref(),
-            (Evaluation::Boolean(lval), Evaluation::Boolean(rval)) => lval == rval,
+            (Evaluation::Notion(lval), Evaluation::Notion(rval)) => lval == rval,
             // TODO: Implement custom equality for Noun, Action, Adjective
             _ => false,
         }
@@ -62,7 +62,7 @@ impl Evaluation {
             Evaluation::Conclusion(_) => None,
             Evaluation::Number(_) => Some(Datatype::Number),
             Evaluation::Text(_) => Some(Datatype::Text),
-            Evaluation::Boolean(_) => Some(Datatype::Boolean),
+            Evaluation::Notion(_) => Some(Datatype::Notion),
             Evaluation::Collective(_) => None,
             Evaluation::Noun(substantive) => Some(Datatype::Noun(substantive.name.clone())),
             Evaluation::Action(routine) => {
@@ -111,7 +111,7 @@ impl Evaluation {
             },
             (Evaluation::Number(_), Evaluation::Number(_)) => Ok(()),
             (Evaluation::Text(_), Evaluation::Text(_)) => Ok(()),
-            (Evaluation::Boolean(_), Evaluation::Boolean(_)) => Ok(()),
+            (Evaluation::Notion(_), Evaluation::Notion(_)) => Ok(()),
             (Evaluation::Noun(expected), Evaluation::Noun(found)) => if expected.name.as_ref() == found.name.as_ref() {
                 Ok(())
             } else {

@@ -8,7 +8,7 @@ use crate::compilation::variable::Variable;
 pub enum Datatype {
     Number,
     Text,
-    Boolean,
+    Notion,
     Noun(Rc<str>),
     Verb(VerbType),
     Adjective(Rc<str>),

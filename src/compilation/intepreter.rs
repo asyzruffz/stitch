@@ -95,7 +95,7 @@ fn declare_noun(name: &str, super_type: Option<&Datatype>, body: &Statements, en
                 .define(Variable::new("super", super_type), Evaluation::Noun(Substantive::new(super_type_name, noun_environment.clone()))),
             Datatype::Number => noun_environment.borrow_mut().define(Variable::new("super", super_type), Evaluation::Number(0.0)),
             Datatype::Text => noun_environment.borrow_mut().define(Variable::new("super", super_type), Evaluation::Text("".into())),
-            Datatype::Boolean => noun_environment.borrow_mut().define(Variable::new("super", super_type), Evaluation::Boolean(false)),
+            Datatype::Notion => noun_environment.borrow_mut().define(Variable::new("super", super_type), Evaluation::Notion(false)),
             Datatype::Verb(super_type_name) => return Err(EvaluationError::new(&format!("Invalid verb {super_type_name} as super type for noun."))),
             Datatype::Adjective(super_type_name) => return Err(EvaluationError::new(&format!("Invalid adjective {super_type_name} as super type for noun."))),
         }
@@ -125,7 +125,7 @@ fn declare_verb(name: &str, hence_type: Option<&Datatype>, subject_type: Option<
                 None => match datatype {
                     Datatype::Number => Evaluation::Number(0.0),
                     Datatype::Text => Evaluation::Text("".into()),
-                    Datatype::Boolean => Evaluation::Boolean(false),
+                    Datatype::Notion => Evaluation::Notion(false),
                     Datatype::Noun(name) => match environment.borrow().get(name.as_ref()) {
                         Some(value) => value,
                         None => return Err(EvaluationError::new(&format!("Undefined noun \"{name}\"."))),
@@ -165,7 +165,7 @@ fn declare_so(name: &str, datatype: &Datatype, initializer : Option<&Phrase>, en
             let default_value = match datatype {
                 Datatype::Number => Evaluation::Number(0.0),
                 Datatype::Text => Evaluation::Text("".into()),
-                Datatype::Boolean => Evaluation::Boolean(false),
+                Datatype::Notion => Evaluation::Notion(false),
                 Datatype::Noun(name) => match environment.borrow().get(name.as_ref()) {
                     Some(value) => value,
                     None => return Err(EvaluationError::new(&format!("Undefined noun \"{name}\"."))),
@@ -206,7 +206,7 @@ fn evaluate_hence(phrase : &Phrase, environment: Rc<RefCell<Environment>>) -> Re
         Evaluation::Void => Err(EvaluationError::new("Invalid void as hence value")),
         skip @ Evaluation::Skip(_) => Ok(Evaluation::Conclusion(Box::new(skip))),
         value => {
-            if let Evaluation::Boolean(condition) = evaluate_truth(value.clone(), environment.clone())? {
+            if let Evaluation::Notion(condition) = evaluate_truth(value.clone(), environment.clone())? {
                 if condition {
                     Ok(Evaluation::Conclusion(Box::new(value)))
                 } else {
@@ -223,8 +223,8 @@ fn evaluate_primitive(primitive: &Primitive, environment: Rc<RefCell<Environment
     match primitive {
         Primitive::Number(value) => Ok(Evaluation::Number(value.parse::<f32>().unwrap_or_default())),
         Primitive::Text(value) => Ok(Evaluation::Text(value.clone())),
-        Primitive::True => Ok(Evaluation::Boolean(true)),
-        Primitive::False => Ok(Evaluation::Boolean(false)),
+        Primitive::True => Ok(Evaluation::Notion(true)),
+        Primitive::False => Ok(Evaluation::Notion(false)),
         Primitive::It => match environment.borrow().get("it") {
             Some(value) => Ok(value),
             None => Err(EvaluationError::new("Undefined variable \"it\".")),
@@ -254,7 +254,7 @@ fn evaluate_prefix(prefix: &Prefix, subject_phrs: &Phrase, environment: Rc<RefCe
             Evaluation::Conclusion(_) => Err(EvaluationError::new("Invalid not prefix for conclusion")),
             Evaluation::Number(_) => Err(EvaluationError::new("Invalid not prefix for number")),
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid not prefix for text")),
-            Evaluation::Boolean(value) => Ok(Evaluation::Boolean(!value)),
+            Evaluation::Notion(value) => Ok(Evaluation::Notion(!value)),
             Evaluation::Collective(_) => Err(EvaluationError::new("Invalid not prefix for collective")),
             noun @ Evaluation::Noun(_) => Ok(Evaluation::Skip(Box::new(noun))),
             Evaluation::Action(routine) => Err(EvaluationError::new(&format!("Invalid not prefix for action {}", routine.name))),
@@ -266,7 +266,7 @@ fn evaluate_prefix(prefix: &Prefix, subject_phrs: &Phrase, environment: Rc<RefCe
             Evaluation::Conclusion(_) => Err(EvaluationError::new("Invalid negation prefix for conclusion")),
             Evaluation::Number(value) => Ok(Evaluation::Number(-value)),
             Evaluation::Text(_) => Err(EvaluationError::new("Invalid negation prefix for text")),
-            Evaluation::Boolean(_) => Err(EvaluationError::new("Invalid negation prefix for boolean")),
+            Evaluation::Notion(_) => Err(EvaluationError::new("Invalid negation prefix for notion")),
             Evaluation::Collective(_) => Err(EvaluationError::new("Invalid negation prefix for collective")),
             Evaluation::Noun(substantive) => Err(EvaluationError::new(&format!("Invalid negation prefix for {}.", substantive.name))),
             Evaluation::Action(routine) => Err(EvaluationError::new(&format!("Invalid negation prefix for action {}.", routine.name))),
@@ -362,10 +362,10 @@ fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase
                         = (left_phrs, right_phrs) {
 
                 match conjunction {
-                    Conjunction::Greater => Ok(Evaluation::Boolean(lvalue > rvalue)),
-                    Conjunction::GreaterEqual => Ok(Evaluation::Boolean(lvalue >= rvalue)),
-                    Conjunction::Less => Ok(Evaluation::Boolean(lvalue < rvalue)),
-                    Conjunction::LessEqual => Ok(Evaluation::Boolean(lvalue <= rvalue)),
+                    Conjunction::Greater => Ok(Evaluation::Notion(lvalue > rvalue)),
+                    Conjunction::GreaterEqual => Ok(Evaluation::Notion(lvalue >= rvalue)),
+                    Conjunction::Less => Ok(Evaluation::Notion(lvalue < rvalue)),
+                    Conjunction::LessEqual => Ok(Evaluation::Notion(lvalue <= rvalue)),
                     _ => unreachable!(),
                 }
                 
@@ -383,8 +383,8 @@ fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase
             if let (Ok(left_result), Ok(right_result)) = (left_phrs, right_phrs) {
 
                 match conjunction {
-                    Conjunction::Equal => Ok(Evaluation::Boolean(Evaluation::equal(&left_result, &right_result))),
-                    Conjunction::NotEqual => Ok(Evaluation::Boolean(!Evaluation::equal(&left_result, &right_result))),
+                    Conjunction::Equal => Ok(Evaluation::Notion(Evaluation::equal(&left_result, &right_result))),
+                    Conjunction::NotEqual => Ok(Evaluation::Notion(!Evaluation::equal(&left_result, &right_result))),
                     _ => unreachable!(),
                 }
                 
@@ -395,12 +395,12 @@ fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase
         Conjunction::And => {
             let result = evaluate_truth(evaluate(left, environment.clone())?, environment.clone())?;
             match result {
-                Evaluation::Boolean(value) => {
+                Evaluation::Notion(value) => {
                     if !value { Ok(result) }
                     else {
                         let result = evaluate_truth(evaluate(right, environment.clone())?, environment.clone())?;
                         match result {
-                            Evaluation::Boolean(_) => Ok(result),
+                            Evaluation::Notion(_) => Ok(result),
                             _ => Err(EvaluationError::new("Invalid logic operand")),
                         }
                     }
@@ -411,12 +411,12 @@ fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase
         Conjunction::Or => {
             let result = evaluate_truth(evaluate(left, environment.clone())?, environment.clone())?;
             match result {
-                Evaluation::Boolean(value) => {
+                Evaluation::Notion(value) => {
                     if value { Ok(result) }
                     else {
                         let result = evaluate_truth(evaluate(right, environment.clone())?, environment.clone())?;
                         match result {
-                            Evaluation::Boolean(_) => Ok(result),
+                            Evaluation::Notion(_) => Ok(result),
                             _ => Err(EvaluationError::new("Invalid logic operand")),
                         }
                     }
@@ -430,7 +430,7 @@ fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase
 
 fn evaluate_qualifier(subject: Evaluation, adjective: Evaluation, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     match adjective {
-        Evaluation::Boolean(value) => if value {
+        Evaluation::Notion(value) => if value {
             Ok(subject)
         } else {
             Ok(Evaluation::Skip(Box::new(subject)))
@@ -466,22 +466,22 @@ fn evaluate_routine(subject: Evaluation, object: Evaluation, routine: &Routine, 
 
 fn evaluate_truth(value : Evaluation, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     match value {
-        Evaluation::Void => Err(EvaluationError::new("Invalid boolean condition for void")),
-        Evaluation::Skip(_) => Err(EvaluationError::new("Invalid boolean condition for skip")),
-        Evaluation::Conclusion(_) => Err(EvaluationError::new("Invalid boolean condition for conclusion")),
-        Evaluation::Number(value) => Ok(Evaluation::Boolean(value != 0.0)),
-        Evaluation::Text(_) => Ok(Evaluation::Boolean(true)),
-        Evaluation::Boolean(value) => Ok(Evaluation::Boolean(value)),
-        Evaluation::Collective(evaluations) => Ok(Evaluation::Boolean(evaluations.iter()
+        Evaluation::Void => Err(EvaluationError::new("Invalid truth condition for void")),
+        Evaluation::Skip(_) => Err(EvaluationError::new("Invalid truth condition for skip")),
+        Evaluation::Conclusion(_) => Err(EvaluationError::new("Invalid truth condition for conclusion")),
+        Evaluation::Number(value) => Ok(Evaluation::Notion(value != 0.0)),
+        Evaluation::Text(_) => Ok(Evaluation::Notion(true)),
+        Evaluation::Notion(value) => Ok(Evaluation::Notion(value)),
+        Evaluation::Collective(evaluations) => Ok(Evaluation::Notion(evaluations.iter()
             .map(|evaluation| match evaluate_truth(evaluation.clone(), environment.clone()) {
-                Ok(Evaluation::Boolean(value)) => Ok(value),
-                Ok(_) => Err(EvaluationError::new("Invalid boolean condition for collective element")),
+                Ok(Evaluation::Notion(value)) => Ok(value),
+                Ok(_) => Err(EvaluationError::new("Invalid truth condition for collective element")),
                 Err(error) => Err(error),
             })
             .collect::<Result<Vec<_>, _>>()?.into_iter()
             .all(|value| value))),
         Evaluation::Noun(substantive) => Err(EvaluationError::new(&format!("No implementation of truth for noun {}", substantive.name))),
-        Evaluation::Action(_) => Err(EvaluationError::new("Invalid boolean condition for action")),
+        Evaluation::Action(_) => Err(EvaluationError::new("Invalid truth condition for action")),
         Evaluation::Adjective(routine) => Err(EvaluationError::new(&format!("No implementation of truth for adjective {}", routine.name))),
     }
 }

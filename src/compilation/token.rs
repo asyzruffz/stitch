@@ -35,6 +35,7 @@ impl Token {
             ("it".into(), TokenType::It),
             ("noun".into(), TokenType::Noun),
             ("not".into(), TokenType::Not),
+            ("notion".into(), TokenType::Type(Datatype::Notion)),
             ("number".into(), TokenType::Type(Datatype::Number)),
             ("or".into(), TokenType::Or),
             ("so".into(), TokenType::So),
