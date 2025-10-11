@@ -37,6 +37,7 @@ impl Token {
             ("not".into(), TokenType::Not),
             ("notion".into(), TokenType::Type(Datatype::Notion)),
             ("number".into(), TokenType::Type(Datatype::Number)),
+            ("of".into(), TokenType::Of),
             ("or".into(), TokenType::Or),
             ("so".into(), TokenType::So),
             ("text".into(), TokenType::Type(Datatype::Text)),
@@ -45,6 +46,7 @@ impl Token {
             ("true".into(), TokenType::True),
             ("verb".into(), TokenType::Verb),
             ("when".into(), TokenType::When),
+            ("with".into(), TokenType::With),
         ]).into()
     }
 }
@@ -92,12 +94,14 @@ impl From<Token> for TokenCategory {
             TokenType::Is => TokenCategory::Op(value),
             TokenType::Noun => TokenCategory::Op(value),
             TokenType::Not => TokenCategory::Op(value),
+            TokenType::Of => TokenCategory::Op(value),
             TokenType::Or => TokenCategory::Op(value),
             TokenType::So => TokenCategory::Op(value),
             TokenType::The => TokenCategory::Op(value),
             TokenType::To => TokenCategory::Op(value),
             TokenType::Verb => TokenCategory::Op(value),
             TokenType::When => TokenCategory::Op(value),
+            TokenType::With => TokenCategory::Op(value),
 
             TokenType::EOF => TokenCategory::EOF,
         }
@@ -183,6 +187,7 @@ pub enum TokenType {
     It,
     Noun,
     Not,
+    Of,
     Or,
     So,
     The,
@@ -190,6 +195,7 @@ pub enum TokenType {
     True,
     Verb,
     When,
+    With,
   
     EOF
 }
@@ -210,17 +216,19 @@ impl TokenType {
 
             TokenType::As => Precedent::Infix(5, 4),
 
-            TokenType::Or => Precedent::Infix(6, 7),
-            TokenType::And => Precedent::Infix(8, 9),
-            TokenType::Equal | TokenType::Tilde => Precedent::Infix(10, 11),
-            TokenType::Greater | TokenType::GreaterEqual | TokenType::Less | TokenType::LessEqual => Precedent::Infix(12, 13),
+            TokenType::With => Precedent::Infix(6, 7),
 
-            TokenType::Minus => Precedent::Infix(14, 15),
-            TokenType::Plus => Precedent::Infix(14, 15),
-            TokenType::Slash | TokenType::Star => Precedent::Infix(16, 17),
+            TokenType::Or => Precedent::Infix(8, 9),
+            TokenType::And => Precedent::Infix(10, 11),
+            TokenType::Equal | TokenType::Tilde => Precedent::Infix(12, 13),
+            TokenType::Greater | TokenType::GreaterEqual | TokenType::Less | TokenType::LessEqual => Precedent::Infix(14, 15),
 
-            TokenType::Not => Precedent::Prefix(18),
-            TokenType::The => Precedent::Prefix(19),
+            TokenType::Minus | TokenType::Plus => Precedent::Infix(16, 17),
+            TokenType::Slash | TokenType::Star => Precedent::Infix(18, 19),
+
+            TokenType::Not => Precedent::Prefix(20),
+            TokenType::The => Precedent::Prefix(21),
+            TokenType::Of => Precedent::Infix(23, 22),
 
             // Separated in case refactor make these ones have precedent
             TokenType::LeftParen => Precedent::None,
@@ -238,7 +246,16 @@ impl TokenType {
             TokenType::To => Precedent::None,
             TokenType::Verb => Precedent::None,
 
-            _ => Precedent::None,
+            // Literals have no precedent
+            TokenType::Number => Precedent::None,
+            TokenType::Text => Precedent::None,
+            TokenType::False => Precedent::None,
+            TokenType::True => Precedent::None,
+            TokenType::It => Precedent::None,
+            TokenType::Type(_) => Precedent::None,
+
+            TokenType::None => Precedent::None,
+            TokenType::EOF => Precedent::None,
         }
     }
 }

@@ -327,6 +327,15 @@ fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Op
                 None => Err(EvaluationError::new("Invalid assigning to none")),
             }
         },
+        Verb::Attribute => {
+            todo!("Implement attribute verb")
+        },
+        Verb::Concatenation => match (subject, object) {
+            (Evaluation::Text(lvalue), Evaluation::Text(rvalue)) => {
+                Ok(Evaluation::Text(format!("{lvalue}{rvalue}").into()))
+            }
+            _ => Err(EvaluationError::new("Invalid operand not as texts")),
+        },
         Verb::Action(name) => {
             if let skipped_subject @ Evaluation::Skip(_) = subject {
                 return Ok(skipped_subject);

@@ -12,6 +12,8 @@ pub enum Verb {
     Subtract,
     Add,
     Assign,
+    Attribute,
+    Concatenation,
     Action(Rc<str>),
 }
 
@@ -24,6 +26,8 @@ impl fmt::Display for Verb {
             Verb::Subtract => write!(f, "-"),
             Verb::Add => write!(f, "+"),
             Verb::Assign => write!(f, "="),
+            Verb::Attribute => write!(f, "of"),
+            Verb::Concatenation => write!(f, "with"),
             Verb::Action(verb) => write!(f, "{verb}"),
         }
     }
@@ -37,6 +41,8 @@ impl From<TokenType> for Verb {
             TokenType::Minus => Verb::Subtract,
             TokenType::Plus => Verb::Add,
             TokenType::As => Verb::Assign,
+            TokenType::Of => Verb::Attribute,
+            TokenType::With => Verb::Concatenation,
             TokenType::Identifier => Verb::Action("<Action>".into()),
             _ => Verb::None,
         }
