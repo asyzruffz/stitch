@@ -285,7 +285,10 @@ fn evaluate_prefix(prefix: &Prefix, subject_phrs: &Phrase, environment: Rc<RefCe
 
 fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Option<&Phrase>, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     let subject = match subject_phrs {
-        Some(subject_phrs) => evaluate(subject_phrs, environment.clone())?,
+        Some(subject_phrs) => {
+            if verb == &Verb::Attribute { Evaluation::Void }
+            else { evaluate(subject_phrs, environment.clone())? }
+        },
         None => Evaluation::Void,
     };
     let object = match object_phrs {
@@ -328,7 +331,35 @@ fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Op
             }
         },
         Verb::Attribute => {
-            todo!("Implement attribute verb")
+            if let Some(Phrase::Primary(Primitive::Variable(attribute_name))) = subject_phrs {
+                return match object {
+                    Evaluation::Noun(substantive) => {
+                        if let Some(attribute) = substantive.environment.borrow().get(attribute_name) {
+                            Ok(attribute)
+                        } else {
+                            Err(EvaluationError::new(&format!("Undefined attribute {} for noun {}.", attribute_name, substantive.name)))
+                        }
+                    },
+                    _ => Err(EvaluationError::new("Invalid attribute object not as noun")),
+                };
+            }
+
+            let subject = match subject_phrs {
+                Some(subject_phrs) => evaluate(subject_phrs, environment.clone())?,
+                None => Evaluation::Void,
+            };
+
+            if let Evaluation::Skip(_) = subject {
+                return match object {
+                    skipped_object @ Evaluation::Skip(_) => Ok(skipped_object),
+                    object => Ok(Evaluation::Skip(Box::new(object))),
+                };
+            }
+            if let skipped_object @ Evaluation::Skip(_) = object {
+                return Ok(skipped_object);
+            }
+
+            Err(EvaluationError::new(&format!("Invalid attribute, must be a variable")))
         },
         Verb::Concatenation => match (subject, object) {
             (Evaluation::Text(lvalue), Evaluation::Text(rvalue)) => {
