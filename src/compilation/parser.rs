@@ -368,7 +368,7 @@ fn handle_phrase<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<Phra
     let category = tokens.next().map(|t| TokenCategory::from(t.to_owned()));
 
     let mut phrase = match category {
-        Some(TokenCategory::Atom(token)) => handle_atom(token)?,
+        Some(TokenCategory::Atom(token)) => handle_atom(tokens, token)?,
         Some(TokenCategory::Op(prefix)) => handle_prefix(tokens, prefix)?,
         Some(TokenCategory::EOF) => {
             return Err(CompilerError::LexicalError("Unexpected EOF".into()));
@@ -383,6 +383,7 @@ fn handle_phrase<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<Phra
         let op = match tokens.get_current().map(|t| TokenCategory::from(t.to_owned())) {
             Some(TokenCategory::Op(token)) => token,
             Some(TokenCategory::Atom(token @ Token { name: TokenType::Identifier, .. })) => token,
+            Some(TokenCategory::Atom(Token { name: TokenType::RightParen, .. })) => { tokens.next(); break },
             Some(TokenCategory::Atom(token)) => {
                 let msg = format!("[line {}] Error at '{}': {} is invalid operator.", token.line, token.lexeme, token.name);
                 return Err(CompilerError::LexicalError(msg.into()));
@@ -525,7 +526,7 @@ fn handle_adjective<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<P
     let category = tokens.next().map(|t| TokenCategory::from(t.to_owned()));
 
     let mut phrase = match category {
-        Some(TokenCategory::Atom(token)) => handle_atom(token)?,
+        Some(TokenCategory::Atom(token)) => handle_atom(tokens, token)?,
         Some(TokenCategory::Op(_)) => {
             return Err(CompilerError::LexicalError("Unsupported adjective as prefix".into()));
         },
@@ -542,6 +543,7 @@ fn handle_adjective<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<P
         let op = match tokens.get_current().map(|t| TokenCategory::from(t.to_owned())) {
             Some(TokenCategory::Op(token)) => token,
             Some(TokenCategory::Atom(token @ Token { name: TokenType::Identifier, .. })) => token,
+            Some(TokenCategory::Atom(Token { name: TokenType::RightParen, .. })) => { tokens.next(); break },
             Some(TokenCategory::Atom(token)) => {
                 let msg = format!("[line {}] Error at '{}': {} is invalid operator.", token.line, token.lexeme, token.name);
                 return Err(CompilerError::LexicalError(msg.into()));
@@ -572,7 +574,21 @@ fn handle_adjective<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<P
     Ok(phrase)
 }
 
-fn handle_atom(token : Token) -> Result<Phrase, CompilerError> {
+fn handle_grouping<'a, Buffer>(tokens : &mut Buffer) -> Result<Phrase, CompilerError>
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
+    if tokens.match_next(&[TokenType::LeftParen]) {
+        handle_grouping(tokens)
+    } else {
+        handle_phrase(tokens, 0)
+    }
+}
+
+fn handle_atom<'a, Buffer>(tokens : &mut Buffer, token : Token) -> Result<Phrase, CompilerError>
+    where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
+    if token.name == TokenType::LeftParen {
+        return handle_grouping(tokens);
+    }
+
     if token.name == TokenType::It {
         return Ok(Phrase::Primary(Primitive::It));
     }

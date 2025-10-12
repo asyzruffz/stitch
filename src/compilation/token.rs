@@ -72,11 +72,12 @@ impl From<Token> for TokenCategory {
             TokenType::Adjective => TokenCategory::Atom(value),
             TokenType::Noun => TokenCategory::Atom(value),
             TokenType::Verb => TokenCategory::Atom(value),
+            
+            TokenType::LeftParen => TokenCategory::Atom(value),
+            TokenType::RightParen => TokenCategory::Atom(value),
+            TokenType::LeftBrace => TokenCategory::Atom(value),
+            TokenType::RightBrace => TokenCategory::Atom(value),
 
-            TokenType::LeftParen => TokenCategory::Op(value),
-            TokenType::RightParen => TokenCategory::Op(value),
-            TokenType::LeftBrace => TokenCategory::Op(value),
-            TokenType::RightBrace => TokenCategory::Op(value),
             TokenType::Comma => TokenCategory::Op(value),
             TokenType::Dot => TokenCategory::Op(value),
             TokenType::Minus =>TokenCategory::Op(value),
