@@ -345,6 +345,10 @@ fn handle_so_declaration<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement, 
 
 fn handle_sentence<'a, Buffer>(tokens : &mut Buffer) -> Result<Statement, CompilerError>
     where Buffer: TokenBuffer + Iterator<Item = &'a Token> {
+    if tokens.match_next(&[TokenType::So]) {
+        return handle_so_definition(tokens);
+    }
+    
     let hence = tokens.match_next(&[TokenType::Hence]);
     let phrase = handle_phrase(tokens, 0)?;
 
@@ -596,6 +600,11 @@ fn handle_atom(token : Token) -> Result<Phrase, CompilerError> {
     }
     if token.name == TokenType::Identifier {
         return Ok(Phrase::Primary(Primitive::Variable(token.lexeme)));
+    }
+
+    if token.name == TokenType::Adjective || token.name == TokenType::Noun || token.name == TokenType::Verb {
+        let msg = format!("At '{}' [line {}], invalid definition of {} in this scope", token.lexeme, token.line, token.name);
+        return Err(CompilerError::LexicalError(msg.into()));
     }
 
     let msg = format!("At '{}' [line {}], invalid noun or adjective", token.lexeme, token.line);

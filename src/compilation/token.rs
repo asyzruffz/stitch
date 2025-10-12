@@ -68,6 +68,10 @@ impl From<Token> for TokenCategory {
             TokenType::Text => TokenCategory::Atom(value),
             TokenType::Type(_) => TokenCategory::Atom(value),
             TokenType::It => TokenCategory::Atom(value),
+            
+            TokenType::Adjective => TokenCategory::Atom(value),
+            TokenType::Noun => TokenCategory::Atom(value),
+            TokenType::Verb => TokenCategory::Atom(value),
 
             TokenType::LeftParen => TokenCategory::Op(value),
             TokenType::RightParen => TokenCategory::Op(value),
@@ -86,20 +90,17 @@ impl From<Token> for TokenCategory {
             TokenType::Less => TokenCategory::Op(value),
             TokenType::LessEqual => TokenCategory::Op(value),
 
-            TokenType::Adjective => TokenCategory::Op(value),
             TokenType::And => TokenCategory::Op(value),
             TokenType::As => TokenCategory::Op(value),
             TokenType::For => TokenCategory::Op(value),
             TokenType::Hence => TokenCategory::Op(value),
             TokenType::Is => TokenCategory::Op(value),
-            TokenType::Noun => TokenCategory::Op(value),
             TokenType::Not => TokenCategory::Op(value),
             TokenType::Of => TokenCategory::Op(value),
             TokenType::Or => TokenCategory::Op(value),
             TokenType::So => TokenCategory::Op(value),
             TokenType::The => TokenCategory::Op(value),
             TokenType::To => TokenCategory::Op(value),
-            TokenType::Verb => TokenCategory::Op(value),
             TokenType::When => TokenCategory::Op(value),
             TokenType::With => TokenCategory::Op(value),
 

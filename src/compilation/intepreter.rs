@@ -322,7 +322,7 @@ fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Op
                             Ok(_) => Ok(object),
                         }
                     }
-                    _ => Err(EvaluationError::new("Invalid assignment target")),
+                    phrs => Err(EvaluationError::new(&format!("Invalid assignment target {phrs}"))),
                 },
                 None => Err(EvaluationError::new("Invalid assigning to none")),
             }
