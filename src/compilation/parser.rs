@@ -440,24 +440,16 @@ fn handle_collective<'a, Buffer>(tokens : &mut Buffer, precedent: u8) -> Result<
             let token = current;
 
             while tokens.match_next(&[TokenType::Comma]) {
+                let final_item = tokens.match_next(&[TokenType::And, TokenType::Or]);
 
-                if tokens.match_next(&[TokenType::And, TokenType::Or]) {
-                    if let Precedent::Infix(_, r_bp) = token.name.precedent() {
-                        phrases.push(handle_phrase(tokens, r_bp)?);
-                    } else {
-                        let msg = format!("[line {}] Error at '{}': {} has a wrong precedent type.", token.line, token.lexeme, token.name);
-                        return Err(CompilerError::LexicalError(msg.into()))
-                    }
-
-                    break;
+                if let Precedent::Infix(_, r_bp) = token.name.precedent() {
+                    phrases.push(handle_phrase(tokens, r_bp)?);
                 } else {
-                    if let Precedent::Infix(_, r_bp) = token.name.precedent() {
-                        phrases.push(handle_phrase(tokens, r_bp)?);
-                    } else {
-                        let msg = format!("[line {}] Error at '{}': {} has a wrong precedent type.", token.line, token.lexeme, token.name);
-                        return Err(CompilerError::LexicalError(msg.into()))
-                    }
+                    let msg = format!("[line {}] Error at '{}': {} has a wrong precedent type.", token.line, token.lexeme, token.name);
+                    return Err(CompilerError::LexicalError(msg.into()))
                 }
+                
+                if final_item { break; }
             };
 
             if phrases.len() == 1 {

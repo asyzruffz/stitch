@@ -204,7 +204,7 @@ fn evaluate_hence(phrase : &Phrase, environment: Rc<RefCell<Environment>>) -> Re
     let hence_value = evaluate(phrase, environment.clone())?;
     match hence_value {
         Evaluation::Void => Err(EvaluationError::new("Invalid void as hence value")),
-        skip @ Evaluation::Skip(_) => Ok(Evaluation::Conclusion(Box::new(skip))),
+        Evaluation::Skip(value) => Ok(Evaluation::Skip(Box::new(Evaluation::Conclusion(value.to_owned())))),
         value => {
             if let Evaluation::Notion(condition) = evaluate_truth(value.clone(), environment.clone())? {
                 if condition {
