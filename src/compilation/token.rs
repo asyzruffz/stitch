@@ -209,12 +209,12 @@ impl fmt::Display for TokenType {
 impl TokenType {
     pub fn precedent(&self) -> Precedent {
         match self {
-            TokenType::Identifier => Precedent::Infix(1, 2),
-            TokenType::Comma => Precedent::Infix(1, 2),
-
-            TokenType::When => Precedent::Postfix(3),
-
-            TokenType::As => Precedent::Infix(5, 4),
+            TokenType::As => Precedent::Infix(2, 1),
+            
+            TokenType::Identifier => Precedent::Infix(3, 4),
+            TokenType::Comma => Precedent::Infix(3, 4),
+            
+            TokenType::When => Precedent::Postfix(5),
 
             TokenType::With => Precedent::Infix(6, 7),
 
