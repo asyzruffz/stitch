@@ -218,23 +218,22 @@ impl TokenType {
             TokenType::As => Precedent::Infix(2, 1),
             
             TokenType::Identifier => Precedent::Infix(3, 4),
-            TokenType::Comma => Precedent::Infix(3, 4),
             
-            TokenType::With => Precedent::Infix(5, 6),
-            
-            TokenType::When => Precedent::Postfix(7),
+            TokenType::Comma => Precedent::Infix(5, 6),
+            TokenType::With => Precedent::Infix(7, 8),
+            TokenType::When => Precedent::Postfix(9),
 
-            TokenType::Or => Precedent::Infix(8, 9),
-            TokenType::And => Precedent::Infix(10, 11),
-            TokenType::Equal | TokenType::Tilde => Precedent::Infix(12, 13),
-            TokenType::Greater | TokenType::GreaterEqual | TokenType::Less | TokenType::LessEqual => Precedent::Infix(14, 15),
+            TokenType::Or => Precedent::Infix(11, 10),
+            TokenType::And => Precedent::Infix(12, 13),
+            TokenType::Equal | TokenType::Tilde => Precedent::Infix(14, 15),
+            TokenType::Greater | TokenType::GreaterEqual | TokenType::Less | TokenType::LessEqual => Precedent::Infix(16, 17),
 
-            TokenType::Minus | TokenType::Plus => Precedent::Infix(16, 17),
-            TokenType::Slash | TokenType::Star => Precedent::Infix(18, 19),
+            TokenType::Minus | TokenType::Plus => Precedent::Infix(18, 19),
+            TokenType::Slash | TokenType::Star => Precedent::Infix(20, 21),
 
-            TokenType::Not => Precedent::Prefix(20),
-            TokenType::The => Precedent::Prefix(21),
-            TokenType::Of => Precedent::Infix(23, 22),
+            TokenType::Not => Precedent::Prefix(22),
+            TokenType::The => Precedent::Prefix(23),
+            TokenType::Of => Precedent::Infix(25, 24),
 
             // Separated in case refactor make these ones have precedent
             TokenType::LeftParen => Precedent::None,
