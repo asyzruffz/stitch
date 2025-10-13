@@ -364,7 +364,13 @@ fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Op
         Verb::Concatenation => match (subject, object) {
             (Evaluation::Text(lvalue), Evaluation::Text(rvalue)) => {
                 Ok(Evaluation::Text(format!("{lvalue}{rvalue}").into()))
-            }
+            },
+            (Evaluation::Text(lvalue), Evaluation::Skip(_)) => {
+                Ok(Evaluation::Text(lvalue))
+            },
+            (Evaluation::Skip(_), Evaluation::Text(rvalue)) => {
+                Ok(Evaluation::Text(rvalue))
+            },
             _ => Err(EvaluationError::new("Invalid operand not as texts")),
         },
         Verb::Action(name) => {
@@ -388,18 +394,18 @@ fn evaluate_action(verb: &Verb, subject_phrs : Option<&Phrase>, object_phrs : Op
     }
 }
 
-fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
+fn evaluate_condition(conjunction: &Conjunction, left_phrase : &Phrase, right_phrase : &Phrase, environment: Rc<RefCell<Environment>>) -> Result<Evaluation, EvaluationError> {
     match conjunction {
         Conjunction::Greater | Conjunction::GreaterEqual | Conjunction::Less | Conjunction::LessEqual => {
-            let left_phrs = evaluate(left, environment.clone());
-            let right_phrs = evaluate(right, environment.clone());
+            let left_eval = evaluate(left_phrase, environment.clone());
+            let right_eval = evaluate(right_phrase, environment.clone());
 
-            let error = if let Err(err) = left_phrs.clone() { Some(err) } else { None };
-            let error = if let Err(err) = right_phrs.clone() { error.and_then(|e| Some(e.concat(err))) } else { error };
+            let error = if let Err(err) = left_eval.clone() { Some(err) } else { None };
+            let error = if let Err(err) = right_eval.clone() { error.and_then(|e| Some(e.concat(err))) } else { error };
 
             if let (Ok(Evaluation::Number(lvalue)),
                     Ok(Evaluation::Number(rvalue)))
-                        = (left_phrs, right_phrs) {
+                        = (left_eval, right_eval) {
 
                 match conjunction {
                     Conjunction::Greater => Ok(Evaluation::Notion(lvalue > rvalue)),
@@ -414,13 +420,13 @@ fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase
             }
         },
         Conjunction::Equal | Conjunction::NotEqual => {
-            let left_phrs = evaluate(left, environment.clone());
-            let right_phrs = evaluate(right, environment.clone());
+            let left_eval = evaluate(left_phrase, environment.clone());
+            let right_eval = evaluate(right_phrase, environment.clone());
 
-            let error = if let Err(err) = left_phrs.clone() { Some(err) } else { None };
-            let error = if let Err(err) = right_phrs.clone() { error.and_then(|e| Some(e.concat(err))) } else { error };
+            let error = if let Err(err) = left_eval.clone() { Some(err) } else { None };
+            let error = if let Err(err) = right_eval.clone() { error.and_then(|e| Some(e.concat(err))) } else { error };
 
-            if let (Ok(left_result), Ok(right_result)) = (left_phrs, right_phrs) {
+            if let (Ok(left_result), Ok(right_result)) = (left_eval, right_eval) {
 
                 match conjunction {
                     Conjunction::Equal => Ok(Evaluation::Notion(Evaluation::equal(&left_result, &right_result))),
@@ -433,12 +439,12 @@ fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase
             }
         },
         Conjunction::And => {
-            let result = evaluate_truth(evaluate(left, environment.clone())?, environment.clone())?;
+            let result = evaluate_truth(evaluate(left_phrase, environment.clone())?, environment.clone())?;
             match result {
                 Evaluation::Notion(value) => {
                     if !value { Ok(result) }
                     else {
-                        let result = evaluate_truth(evaluate(right, environment.clone())?, environment.clone())?;
+                        let result = evaluate_truth(evaluate(right_phrase, environment.clone())?, environment.clone())?;
                         match result {
                             Evaluation::Notion(_) => Ok(result),
                             _ => Err(EvaluationError::new("Invalid logic operand")),
@@ -449,12 +455,12 @@ fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase
             }
         },
         Conjunction::Or => {
-            let result = evaluate_truth(evaluate(left, environment.clone())?, environment.clone())?;
+            let result = evaluate_truth(evaluate(left_phrase, environment.clone())?, environment.clone())?;
             match result {
                 Evaluation::Notion(value) => {
                     if value { Ok(result) }
                     else {
-                        let result = evaluate_truth(evaluate(right, environment.clone())?, environment.clone())?;
+                        let result = evaluate_truth(evaluate(right_phrase, environment.clone())?, environment.clone())?;
                         match result {
                             Evaluation::Notion(_) => Ok(result),
                             _ => Err(EvaluationError::new("Invalid logic operand")),
@@ -464,7 +470,11 @@ fn evaluate_condition(conjunction: &Conjunction, left : &Phrase, right : &Phrase
                 _ => Err(EvaluationError::new("Invalid logic operand")),
             }
         },
-        Conjunction::None => Err(EvaluationError::new("None conjunction invalid")),
+        Conjunction::None => {
+            let left_eval = evaluate(left_phrase, environment.clone())?;
+            let right_eval = evaluate(right_phrase, environment.clone())?;
+            Err(EvaluationError::new(&format!("Invalid unknown conjunction for {left_eval} and {right_eval}")))
+        },
     }
 }
 

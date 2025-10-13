@@ -204,7 +204,11 @@ pub enum TokenType {
 
 impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        if let TokenType::Type(datatype) = self {
+            write!(f, "Type:{datatype})")
+        } else {
+            write!(f, "{:?}", self)
+        }
     }
 }
 
@@ -216,9 +220,9 @@ impl TokenType {
             TokenType::Identifier => Precedent::Infix(3, 4),
             TokenType::Comma => Precedent::Infix(3, 4),
             
-            TokenType::When => Precedent::Postfix(5),
-
-            TokenType::With => Precedent::Infix(6, 7),
+            TokenType::With => Precedent::Infix(5, 6),
+            
+            TokenType::When => Precedent::Postfix(7),
 
             TokenType::Or => Precedent::Infix(8, 9),
             TokenType::And => Precedent::Infix(10, 11),
